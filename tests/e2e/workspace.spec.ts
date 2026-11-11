@@ -147,6 +147,45 @@ test('shared script editing, save before Play, live output, reconnect and stop',
   expect(config.scripts[0].name).toBe('Application');
 });
 
+test('scripts dialog stays centered and opaque with host glass, themes and narrow windows', async ({ page }) => {
+  await openFile(page);
+  await page.evaluate(() => document.documentElement.setAttribute('data-hermes-glass', ''));
+  const dialog = page.getByRole('dialog', { name: 'Project scripts', exact: true });
+  const centered = async () => {
+    const box = await dialog.boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.x + box!.width / 2 - viewport.width / 2)).toBeLessThan(1);
+    expect(Math.abs(box!.y + box!.height / 2 - viewport.height / 2)).toBeLessThan(1);
+    expect(box!.y).toBeGreaterThanOrEqual(15);
+    expect(box!.x).toBeGreaterThan(0);
+  };
+  await page.setViewportSize({ width: 1158, height: 650 });
+  await page.getByRole('button', { name: 'Edit scripts', exact: true }).click();
+  await centered();
+  await expect(dialog).toHaveCSS('background-color', 'rgb(36, 38, 46)');
+  await page.getByRole('button', { name: 'Add script' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Launch application');
+  await page.getByLabel('Command', { exact: true }).fill('npm run dev');
+  await expect(page.getByRole('textbox', { name: 'Command', exact: true })).toHaveCSS('background-color', 'rgb(23, 25, 30)');
+  await centered();
+  await page.screenshot({ path: '.build/scripts-dialog-dark.png' });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'Theme', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 620 });
+  await page.getByRole('button', { name: 'Edit scripts', exact: true }).click();
+  await expect(dialog).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await page.getByRole('button', { name: 'Add script' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Small window');
+  await centered();
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: '.build/scripts-dialog-narrow.png' });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test('failed saves and switching during a save cancel Play', async ({ page }) => {
   await openFile(page); await addScript(page);
   await replaceText(page, '// draft\n');

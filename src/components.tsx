@@ -13,7 +13,7 @@ export function Modal({ title, children, onClose, className = '' }: { title: str
     dialog.showModal();
     return () => dialog.close();
   }, []);
-  return <dialog ref={ref} className={'hm-dialog ' + className} onCancel={event => { event.preventDefault(); onClose(); }}>
+  return <dialog ref={ref} data-glass-opaque className={'hm-dialog ' + className} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }}>
     <header><h2>{title}</h2><Button aria-label="Close dialog" onClick={onClose}>×</Button></header>
     {children}
   </dialog>;

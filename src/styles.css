@@ -115,7 +115,10 @@
 .hm-stderr{color:var(--hm-red)}
 .hm-log-notice{font-size:11px;padding:4px 12px;color:var(--hm-muted)}
 .hm-output>.hm-error{padding:0 12px}
-.hm-dialog{background:var(--hm-panel);border:1px solid var(--hm-border);border-radius:10px;box-shadow:0 20px 90px #0008;width:min(520px,92vw);max-height:90vh;padding:20px;overflow:auto}
+/* Dialogs float over content: use opaque raised surfaces, never the glass
+   sidebar/editor tokens. Set centering explicitly because host CSS resets
+   the browser's default dialog margin. */
+.hm-dialog{--hm-bg:var(--ui-bg-editor,var(--theme-neutral-card,#17191e));--hm-panel:var(--ui-bg-elevated,var(--theme-neutral-card,#1d2027));position:fixed;inset:0;margin:auto;height:fit-content;background:var(--hm-panel);border:1px solid var(--hm-border);border-radius:10px;box-shadow:0 20px 90px #0008;width:min(520px,92vw);max-height:calc(100dvh - 32px);padding:20px;overflow:auto}
 .hm-dialog::backdrop{background:#0008;backdrop-filter:blur(3px)}
 .hm-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .hm-dialog h2{font-size:16px;font-weight:600;margin:0}

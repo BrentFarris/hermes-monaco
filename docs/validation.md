@@ -3,9 +3,9 @@
 ## Recorded results — 2026-11-10
 
 Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
-151.0.7922.34. **54 automated tests passed:** 32 Python backend tests, 13
-frontend unit tests, and 9 browser tests using real Monaco. The final browser
-suite passed after correcting the surface/color tokens against the real host.
+151.0.7922.34. **55 automated tests passed:** 32 Python backend tests, 13
+frontend unit tests, and 10 browser tests using real Monaco. The browser
+suite covers the real host's surface/color tokens, CSS reset, and Glass styling.
 
 The production bundle is approximately **5.27 MiB**, below the 16 MiB loader
 limit. The build checks its runtime imports; `scripts/check-host.mjs` also
@@ -130,3 +130,18 @@ This does not install packages or change the user's Hermes environment.
 If an already installed copy was refused at enable time, update its files
 before enabling again: `hermes plugins update hermes-monaco`, followed by
 `hermes plugins enable hermes-monaco`.
+
+## Dialog layout regression
+
+Hermes's CSS reset removes the native dialog's automatic margins, while
+Glass mode makes the sidebar/editor surface tokens transparent. Dialogs now
+set viewport centering explicitly and use opaque raised-surface tokens for
+the panel and form controls. Height is bounded by the viewport and content
+scrolls in short or narrow windows. The shared modal fix also applies to
+settings, file actions, and conflict dialogs.
+
+All ten browser tests passed, including light/dark Glass mode, centered
+position after content changes and resizing, readable form backgrounds,
+narrow scrolling, and Escape/Cancel behavior. An actual isolated Hermes
+browser host also passed with dark mode and Glass CSS enabled: the scripts
+dialog was centered to within one pixel and its background alpha was 255.
