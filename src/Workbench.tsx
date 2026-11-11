@@ -22,6 +22,10 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
   const session = controller.session;
   useEffect(() => controller.attach(), [controller]);
   useEffect(() => {
+    // Give an empty Code view keyboard focus without taking it from Monaco.
+    if (!element.current?.contains(document.activeElement)) element.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
     let last = false;
     const observer = new ResizeObserver(entries => {
       const next = entries[0].contentRect.width < 840;
@@ -39,12 +43,18 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
   const running = controller.runs.find(run => run.workspaceId === session?.workspace.id && run.scriptId === session.selectedScript && isRunning(run));
   const runCount = controller.runs.filter(isRunning).length;
   const selectedScript = session?.config.config.scripts.find(script => script.id === session.selectedScript);
+  const runDisabled = !selectedScript || !!session?.configError || !!running || controller.launching || controller.loading;
   const close = (tab: Tab) => {
     if (tab.dirty) { setClosing(tab); setCloseError(''); }
     else void controller.perform(() => controller.close(tab));
   };
-  return <div ref={element} className={`hm-workbench${narrow ? ' hm-narrow' : ''}`} onKeyDownCapture={event => {
+  return <div ref={element} tabIndex={-1} className={`hm-workbench${narrow ? ' hm-narrow' : ''}`} onKeyDownCapture={event => {
     if (event.target instanceof Element && event.target.closest('dialog')) return;
+    if (event.key === 'F5' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault(); event.stopPropagation();
+      if (!event.repeat && !runDisabled) void controller.perform(() => controller.launch());
+      return;
+    }
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const key = event.key.toLowerCase();
     if (key === 'p') { event.preventDefault(); event.stopPropagation(); show('files', true); }
@@ -58,7 +68,7 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
         disabled={!session || !!session.configError} onChange={event => controller.selectScript(event.target.value)}>
         {!session?.config.config.scripts.length && <option value="">Add a script…</option>}
         {session?.config.config.scripts.map(script => <option value={script.id} key={script.id}>{script.name}</option>)}
-      </select><Button className="hm-play" title="Save files and run selected script" aria-label="Run selected script" disabled={!selectedScript || !!session?.configError || !!running || controller.launching}
+      </select><Button className="hm-play" title="Save files and run selected script (F5)" aria-label="Run selected script" aria-keyshortcuts="F5" disabled={runDisabled}
         onClick={() => void controller.perform(() => controller.launch())}>{controller.launching ? '…' : '▶'}</Button>
       {running && <><Button title="Stop selected script" aria-label="Stop selected script" className="hm-danger" onClick={() => void controller.perform(() => controller.stop(running.id))}>■</Button><Button title="Restart selected script" aria-label="Restart selected script" disabled={controller.launching} onClick={() => void controller.perform(() => controller.launch(true))}>↻</Button></>}
       <Button title="Edit scripts" aria-label="Edit scripts" disabled={!session} onClick={() => setScripts(true)}>⋯</Button></div>

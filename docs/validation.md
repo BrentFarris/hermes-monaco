@@ -163,3 +163,15 @@ without a preview marker restores as kept tabs.
 All 14 real Monaco browser tests, 13 frontend unit tests, and 32 backend tests
 passed. The rebuilt bundle passed Hermes's actual loader and install scanner;
 the scanner returned safe with its default policy and no override.
+
+## F5 script shortcut — 2026-11-11
+
+All 15 browser tests and 13 frontend unit tests passed after adding F5 to the
+Code pane. The added browser check exercises save-before-run, failed saves,
+an already running script, held-key repeats, and an empty script list. It also
+checks modifier/composition events, script dialogs, chat while Code is split,
+and leaving Code entirely. F5 launches only from Code and prevents a browser
+refresh there. The Play tooltip and accessibility shortcut announce F5.
+
+The production build, actual Hermes loader check, and default install scanner
+passed. Backend code and dependencies were unchanged.

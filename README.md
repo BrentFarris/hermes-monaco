@@ -34,6 +34,7 @@ Search uses Hermes-managed ripgrep (`hermes pm install ripgrep`), with `rg` on t
 - **Middle-click** anywhere on a tab to close it. Unsaved files still offer Save, Discard, or Cancel.
 - **Ctrl/Cmd+P** opens a filename search; **Ctrl/Cmd+Shift+F** searches project text.
 - **Ctrl/Cmd+S** saves the current file; **Ctrl/Cmd+Shift+S** saves all open workspace files.
+- **F5** saves dirty files and runs the selected script when focus is in Code. It also works in the Code side of Split with chat; chat, dialogs, and other views do not launch scripts. The shortcut follows the green Play button's enabled state and does not restart an already running script.
 - **Ctrl/Cmd+F** and Monaco's find/replace controls operate on the current file.
 - Click the glyph gutter or use **Ctrl/Cmd+F2** to toggle a line bookmark. Name and navigate bookmarks from the left rail.
 - Editor settings control indentation, wrapping, font size, and multiple column guides; defaults are **80, 90**.
@@ -108,7 +109,7 @@ The scan command includes Git-tracked and non-ignored new source files, mirrorin
 
 The dependency check requires `uv` (CI pins 0.13.5). It resolves this plugin's runtime requirements against Hermes's complete lock in a temporary workspace, preserving every platform branch and installing nothing. `psutil` is a test-only dependency; process management at runtime uses Windows Job Objects or POSIX process groups, leaving Hermes's own `psutil` pins unconstrained.
 
-Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. All 59 automated tests passed on Windows, including preview tabs, middle-click closing, dialogs under Glass styling, and narrow layouts. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, Split/Expand, and dark/glass dialog smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
+Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. The latest frontend checks passed on Windows: 13 unit tests and 15 browser tests, including preview tabs, middle-click closing, F5 launch scoping, dialogs under Glass styling, and narrow layouts. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, Split/Expand, and dark/glass dialog smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
 
 ## API and architecture
 

@@ -286,6 +286,82 @@ test('shared script editing, save before Play, live output, reconnect and stop',
   expect(config.scripts[0].name).toBe('Application');
 });
 
+test('F5 runs the selected script only in Code and respects save, dialog and running guards', async ({ page }) => {
+  const workbench = page.locator('.hm-workbench');
+  const play = page.getByRole('button', { name: 'Run selected script', exact: true });
+  const stop = page.getByRole('button', { name: 'Stop selected script', exact: true });
+  let starts = 0;
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/runs')) starts++; });
+  const original = await fixture(page);
+  await expect(workbench).toBeFocused();
+  await page.keyboard.press('F5'); // no script: do not launch or refresh the browser
+  await expect(play).toBeDisabled();
+  expect((await fixture(page)).a).toBe(original.a);
+  await addScript(page);
+  await expect(play).toHaveAttribute('aria-keyshortcuts', 'F5');
+
+  // Synthetic events let us check unhandled keys without browser refresh.
+  const modifiers = await workbench.evaluate(element => ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'isComposing'].map(key => {
+    const event = new KeyboardEvent('keydown', { key: 'F5', [key]: true, bubbles: true, cancelable: true });
+    element.dispatchEvent(event); return event.defaultPrevented;
+  }));
+  expect(modifiers).toEqual([false, false, false, false, false]);
+  expect(await workbench.evaluate(element => {
+    const event = new KeyboardEvent('keydown', { key: 'F5', repeat: true, bubbles: true, cancelable: true });
+    element.dispatchEvent(event); return event.defaultPrevented;
+  })).toBe(true);
+  await page.getByRole('button', { name: 'Edit scripts', exact: true }).click();
+  expect(await page.getByRole('textbox', { name: 'Command', exact: true }).evaluate(element => {
+    const event = new KeyboardEvent('keydown', { key: 'F5', bubbles: true, cancelable: true });
+    element.dispatchEvent(event); return event.defaultPrevented;
+  })).toBe(false);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(starts).toBe(0);
+
+  await openFile(page);
+  await replaceText(page, '// SAVED BY F5\n');
+  await page.route('**/api/plugins/hermes-monaco/file', route => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    return route.fulfill({ json: { error: { code: 'permission', message: 'F5 save failure', status: 403 } } });
+  });
+  await page.keyboard.press('F5');
+  await expect(page.locator('.hm-banner[role=alert]')).toContainText('F5 save failure');
+  expect(starts).toBe(0);
+  await page.unrouteAll({ behavior: 'wait' });
+  await page.getByRole('button', { name: 'Dismiss error', exact: true }).click();
+  await editor(page).click();
+  await page.keyboard.press('F5');
+  await expect(page.locator('.hm-log')).toContainText('SAVED BY F5');
+  await expect(page.locator('.hm-log')).toContainText('RUN READY');
+  await expect(play).toBeDisabled();
+  await page.keyboard.press('F5');
+  await expect(page.locator('.hm-banner.hm-error')).toHaveCount(0);
+  expect(starts).toBe(1);
+  await stop.click();
+  await expect(play).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Split with chat', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Chat', exact: true })).toBeVisible();
+  expect(await page.locator('.fixture-chat').evaluate(element => {
+    const event = new KeyboardEvent('keydown', { key: 'F5', bubbles: true, cancelable: true });
+    element.dispatchEvent(event); return event.defaultPrevented;
+  })).toBe(false);
+  await expect(play).toBeEnabled();
+  await editor(page).click();
+  await page.keyboard.press('F5');
+  await expect(stop).toBeVisible();
+  expect(starts).toBe(2);
+  await stop.click();
+  await expect(play).toBeEnabled();
+  await page.evaluate(() => { const sdk = (window as any).hmTest.sdk; sdk.pane.get()?.onClose?.(); sdk.pane.set(null); });
+  await expect(workbench).toHaveCount(0);
+  expect(await page.locator('.fixture-chat').evaluate(element => {
+    const event = new KeyboardEvent('keydown', { key: 'F5', bubbles: true, cancelable: true });
+    element.dispatchEvent(event); return event.defaultPrevented;
+  })).toBe(false);
+  expect(starts).toBe(2);
+});
+
 test('scripts dialog stays centered and opaque with host glass, themes and narrow windows', async ({ page }) => {
   await openFile(page);
   await page.evaluate(() => document.documentElement.setAttribute('data-hermes-glass', ''));
