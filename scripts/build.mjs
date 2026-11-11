@@ -38,6 +38,8 @@ export async function bundle({ development = false } = {}) {
   await mkdir(resolve(root, 'desktop'), { recursive: true });
   await writeFile(resolve(root, 'desktop/plugin.js'), code);
   await copyFile(resolve(root, 'node_modules/monaco-editor/LICENSE'), resolve(root, 'desktop/LICENSE.monaco-editor.txt'));
+  await copyFile(resolve(root, 'node_modules/marked/LICENSE.md'), resolve(root, 'desktop/LICENSE.marked.txt'));
+  await copyFile(resolve(root, 'node_modules/dompurify/LICENSE'), resolve(root, 'desktop/LICENSE.dompurify.txt'));
   return { bytes, code };
 }
 

@@ -9,6 +9,7 @@ export const route = atom('/hermes-monaco');
 export const pane = atom<{ render(): React.ReactNode; onClose?(): void } | null>(null);
 export const theme = atom('dark');
 export const errors = atom<string[]>([]);
+export const externalLinks: string[] = [];
 export const host = {
   state: { cwd: atom(''), profile: atom('default'), connectionId: atom('local'), gateway: atom('fixture') },
   navigate: route.set,
@@ -29,6 +30,7 @@ export const contributions = atom<any[]>([]);
 let disposers: (() => void)[] = [];
 export const ctx = {
   source: 'hermes-monaco',
+  os: { async openExternal(url: string) { externalLinks.push(url); return true; } },
   register(contribution: any) {
     contributions.set([...contributions.get(), contribution]);
     const dispose = () => contributions.set(contributions.get().filter(item => item !== contribution));

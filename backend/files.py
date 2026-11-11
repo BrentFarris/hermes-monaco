@@ -1,8 +1,10 @@
 """Workspace-relative, revision checked text file operations."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
+import re
 from pathlib import Path, PureWindowsPath
 import stat
 import tempfile
@@ -12,6 +14,9 @@ import uuid
 from .errors import WorkspaceError
 
 MAX_TEXT_BYTES = 4 * 1024 * 1024
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml"}
 
 
 def relative_path(value: str, *, allow_root=False) -> str:
@@ -105,20 +110,38 @@ class Workspace:
         entries.sort(key=lambda entry: (not entry["directory"], entry["name"].casefold()))
         return {"entries": entries, "truncated": truncated}
 
-    def _read_raw(self, ref):
+    def _read_raw(self, ref, *, limit=MAX_TEXT_BYTES, size_message="Text editing is limited to 4 MiB per file."):
         path = self.path(ref)
         # No special devices or pipes: these can block a request indefinitely.
         info = path.stat()
         if not stat.S_ISREG(info.st_mode):
             raise WorkspaceError("not_file", "This entry is not a regular file.")
-        if info.st_size > MAX_TEXT_BYTES:
-            raise WorkspaceError("too_large", "Text editing is limited to 4 MiB per file.", 413)
+        if info.st_size > limit:
+            raise WorkspaceError("too_large", size_message, 413)
         with path.open("rb") as source:
-            raw = source.read(MAX_TEXT_BYTES + 1)
-        if len(raw) > MAX_TEXT_BYTES:
-            raise WorkspaceError("too_large", "Text editing is limited to 4 MiB per file.", 413)
+            raw = source.read(limit + 1)
+        if len(raw) > limit:
+            raise WorkspaceError("too_large", size_message, 413)
         self.path(ref)
         return raw
+
+    def preview_image(self, ref):
+        mime = IMAGE_TYPES.get(self.path(ref).suffix.lower())
+        if mime is None:
+            raise WorkspaceError("unsupported_image", "Image previews support PNG, JPEG, GIF, WebP, and SVG.", 415)
+        raw = self._read_raw(ref, limit=MAX_IMAGE_BYTES, size_message="Image previews are limited to 4 MiB per image.")
+        valid = {
+            "image/png": raw.startswith(b"\x89PNG\r\n\x1a\n"),
+            "image/jpeg": raw.startswith(b"\xff\xd8\xff"),
+            "image/gif": raw.startswith((b"GIF87a", b"GIF89a")),
+            "image/webp": raw.startswith(b"RIFF") and raw[8:12] == b"WEBP",
+            # SVG is returned as bytes for an <img>, never parsed or inlined by
+            # the backend. No XML entity expansion or remote resource fetching.
+            "image/svg+xml": bool(re.match(br"\s*(?:<\?xml[^>]*>\s*|<!--.*?-->\s*)*<svg[\s>]", raw.removeprefix(b"\xef\xbb\xbf")[:8192], re.DOTALL)),
+        }[mime]
+        if not valid:
+            raise WorkspaceError("unsupported_image", "The file does not contain a supported image of this type.", 415)
+        return {"mimeType": mime, "revision": revision(raw), "dataBase64": base64.b64encode(raw).decode("ascii")}
 
     def read(self, ref):
         raw = self._read_raw(ref)

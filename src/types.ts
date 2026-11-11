@@ -1,6 +1,9 @@
 export type Route = { connection: string | null; profile: string; cwd: string; epoch: number };
 export type Workspace = { id: string; root: string; name: string };
 export type FileSnapshot = { path: string; text: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf'; size: number };
+export type ImageSnapshot = { mimeType: string; revision: string; dataBase64: string };
+export type MarkdownViewMode = 'edit' | 'split' | 'preview';
+export type MarkdownViewState = { mode: MarkdownViewMode; splitRatio: number; previewScrollTop: number };
 export type Entry = { name: string; path: string; directory: boolean; size: number; linked: boolean; available: boolean };
 export type Bookmark = { id: string; path: string; line: number; label?: string; preview: string };
 export type Preferences = { rulers: number[]; guides: boolean; fontSize: number; tabSize: number; insertSpaces: boolean; wordWrap: boolean };
@@ -18,6 +21,7 @@ export type SearchResults = { items: SearchItem[]; truncated: boolean };
 export type Draft = { path: string; text: string; baseline: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf' };
 export type SessionMetadata = { version: 1; tabs: string[]; active: string | null; bookmarks: Bookmark[]; expanded: string[]; selectedScript: string;
   preview?: string | null;
+  markdown?: Record<string, MarkdownViewState>;
   views?: Record<string, import('monaco-editor').editor.ICodeEditorViewState> };
 export const isRunning = (run: Run) => ['starting', 'running', 'stopping'].includes(run.status);
 

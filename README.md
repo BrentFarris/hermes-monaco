@@ -46,6 +46,18 @@ Clean open files refresh after external changes. Dirty files retain their conten
 
 Personal preferences and tab/bookmark metadata use Hermes plugin storage. Dirty buffers use IndexedDB and are separated by backend connection, profile, and canonical workspace folder. They are restored when returning to a workspace or reloading the plugin. Draft persistence is debounced by 150 ms; storage failures are shown explicitly. Browser storage clearing removes that browser's recovery data. Personal state never goes into the repository.
 
+## Markdown documents
+
+Files ending in `.md` or `.markdown` (any capitalization) have **Edit / Split / Preview** controls beside the file path. **Split** is the default: Monaco on the left and a live document on the right. Drag the divider, or focus it and use the arrow keys, to adjust the initial 50/50 split. Home/End set the source share to 20%/80%. Below 720px of editor-area width, source and preview stack vertically and the divider uses Up/Down.
+
+The preview renders the current buffer, including unsaved edits, after a 50ms update delay. Each pane scrolls independently. Edit pauses preview rendering; switching modes keeps Monaco's undo history and cursor. The mode, split ratio, and preview scroll position are stored per open tab in the existing isolated personal metadata and survive reloads, workspace switches, and file moves. Changing mode does not edit the file or keep a temporary tab open. Search and bookmark navigation reveal source by changing Preview to Split.
+
+Markdown supports headings, lists, GFM tables, read-only task checkboxes, fenced code blocks, links, images, and sanitized document HTML such as `<details>`. Relative links resolve from the document's folder; `/` starts at the workspace root. File links open kept Code tabs, and heading links scroll the document without changing Hermes's route. HTTP(S) links use Hermes's external-link action, with a safe new-tab fallback. Scripts, embedded frames, inline styles, and executable HTML are removed. Mermaid, math rendering, MDX execution, and editing the rendered document are not supported.
+
+Repository images are read from the connected backend through the same workspace confinement as files. PNG, JPEG, GIF, WebP, and SVG are supported up to **4 MiB per image**. SVG stays inside an image element. Images load as they approach the visible preview, with at most four outstanding backend reads; leaving a document discards stale results and releases its image URLs. External HTTP(S) images load directly in the browser with no referrer. Missing, blocked, invalid, or oversized images show their alt text or an unavailable-image placeholder.
+
+Ctrl/Cmd+S, Ctrl/Cmd+Shift+P, and F5 remain available from the preview. Markdown view settings are separate from the temporary **preview tab** feature.
+
 ## Shared scripts
 
 **Edit scripts** adds, edits, removes, and reorders commands. **Open configuration** opens the underlying file with JSON schema diagnostics. `.hermes/scripts.json` is created only after explicitly saving script definitions. Commit it to share launchers:
@@ -109,7 +121,7 @@ The scan command includes Git-tracked and non-ignored new source files, mirrorin
 
 The dependency check requires `uv` (CI pins 0.13.5). It resolves this plugin's runtime requirements against Hermes's complete lock in a temporary workspace, preserving every platform branch and installing nothing. `psutil` is a test-only dependency; process management at runtime uses Windows Job Objects or POSIX process groups, leaving Hermes's own `psutil` pins unconstrained.
 
-Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. The latest frontend checks passed on Windows: 13 unit tests and 15 browser tests, including preview tabs, middle-click closing, F5 launch scoping, dialogs under Glass styling, and narrow layouts. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, Split/Expand, and dark/glass dialog smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
+The latest checks passed on Windows: **44 backend tests, 30 frontend unit tests, and 23 real Monaco browser tests**. One POSIX-only named-pipe test is skipped on Windows. Coverage includes workspace confinement, revisions, drafts/conflicts, search, script execution, process cleanup, Markdown sanitization and links, image bounds/concurrency, pane state, themes, and keyboard behavior. An isolated actual Hermes browser host also passed the Markdown interaction smoke test under its real loader and security policy. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
 
 ## API and architecture
 
@@ -123,6 +135,7 @@ All routes are scoped by Hermes to `/api/plugins/hermes-monaco`:
 | `POST /workspace` | Bind an absolute active workspace directory; obtain an opaque handle |
 | `GET/POST/PATCH /entries` | Lazy directory listing, create, rename/move |
 | `GET/PUT /file` | Read a snapshot; write with `expectedRevision` (null for create-only) |
+| `GET /preview-image?workspaceId=…&path=…` | Read a confined image; return `mimeType`, SHA-256 `revision`, and `dataBase64` (4 MiB maximum) |
 | `POST /trash` | Recoverable OS deletion |
 | `POST /search` | Filename/text search, filters, and dirty overlays |
 | `GET/PUT /scripts` | Read/validate/save shared configuration with a revision |
@@ -134,6 +147,8 @@ File references are relative to a bound workspace; handles cannot be reused acro
 
 Visible views poll bounded subsets of expanded directories and open files, with an immediate refresh on focus. Async results are checked against the captured connection/profile/folder/activation epoch. Workers, models, subscriptions, styles, and timers are disposed on reload.
 
+Session metadata optionally includes `markdown[path] = { mode, splitRatio, previewScrollTop }`. Missing or invalid values default to `split`, `0.5`, and `0`; ratios are clamped to `0.2`–`0.8`. The existing `preview` field still identifies the one temporary file tab. Image reads use a controller-wide queue, including older in-flight reads while switching documents or workspaces. Image data and object URLs are confined to the currently mounted document preview and are not persisted.
+
 ## Attribution
 
-Echo inspired the editor organization, preview tabs, and column guide helper. The adapted code retains Echo's MIT attribution in `THIRD_PARTY_NOTICES.md`. Monaco and its embedded dependencies retain their license notices in the bundle and distribution.
+Echo inspired the editor organization, temporary tabs, column guides, and Markdown rendering. The adapted code retains Echo's MIT attribution in `THIRD_PARTY_NOTICES.md`. Monaco, Marked, and DOMPurify retain their license notices in the bundle and distribution.

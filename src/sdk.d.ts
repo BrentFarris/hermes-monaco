@@ -9,6 +9,7 @@ declare module '@hermes/plugin-sdk' {
     onDispose(callback: () => void): void;
     addEventListener(target: EventTarget, event: string, callback: EventListener): () => void;
     storage: { get<T>(key: string, fallback: T): T; set(key: string, value: unknown): void; remove(key: string): void };
+    os?: { openExternal(url: string): Promise<boolean> };
     rest<T>(path: string, options?: { method?: string; body?: unknown; timeoutMs?: number }): Promise<T>;
   }
   export interface HermesPlugin { id: string; name: string; description?: string; defaultEnabled?: boolean; register(ctx: PluginContext): void }

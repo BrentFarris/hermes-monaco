@@ -4,6 +4,9 @@ import { ApiError, Client, query, routeKey, sessionKey, StaleContext } from './a
 import { IndexedDraftStore, type DraftStore } from './drafts';
 import { parentPath, preferences, remapPath, underPath } from './editorSettings';
 import { languageForPath, monaco } from './monaco';
+import { ImageReads } from './imageReads';
+import { isMarkdownPath, markdownState } from './markdown';
+import type { ImageSnapshot, MarkdownViewMode, MarkdownViewState } from './types';
 import type { Bookmark, ConfigSnapshot, Draft, Entry, FileSnapshot, Output, Preferences, Route, Run, ScriptsConfig, SearchOptions, SearchResults, SessionMetadata, Workspace } from './types';
 import { isRunning } from './types';
 
@@ -11,6 +14,7 @@ export type Tab = {
   path: string; model: editor.ITextModel; baseline: string; revision: string | null;
   bom: boolean; eol: 'lf' | 'crlf'; dirty: boolean; deleted: boolean; keepOpen: boolean;
   conflict: FileSnapshot | null; viewState: editor.ICodeEditorViewState | null;
+  markdown: MarkdownViewState | null;
   applying: boolean; decorations: Map<string, string>; dispose: () => void;
 };
 
@@ -52,6 +56,7 @@ export class Controller {
   private openSequence = 0;
   private pendingOpens = new Map<string, { intent: OpenIntent; promise: Promise<Tab> }>();
   private pendingSaves = new Map<Tab, Promise<void>>();
+  private imageReads = new ImageReads();
   private cursor = 0;
   private lastRefresh = 0;
   private route: Route;
@@ -105,6 +110,7 @@ export class Controller {
     ++this.launchSequence;
     this.launching = false;
     this.session = null;
+    this.markdownNavigation = null;
     this.runs = [];
     this.selectedRun = '';
     this.output = null;
@@ -158,12 +164,14 @@ export class Controller {
             this.assertSession(session);
             const tab = this.addTab(session, disk, draft);
             tab.viewState = metadata.views?.[path] || null;
+            if (tab.markdown) tab.markdown = markdownState(metadata.markdown?.[path]);
             tab.keepOpen = metadata.preview !== path || tab.dirty || !!tab.conflict;
           } catch (error) {
             if (error instanceof StaleContext) throw error;
             if (draft) {
               const tab = this.addTab(session, { ...draft, text: draft.baseline, size: 0 }, draft);
               tab.viewState = metadata.views?.[path] || null;
+              if (tab.markdown) tab.markdown = markdownState(metadata.markdown?.[path]);
               tab.deleted = error instanceof ApiError && error.code === 'not_found';
             }
             this.error = `Could not restore ${path}: ${error instanceof Error ? error.message : error}`;
@@ -205,7 +213,8 @@ export class Controller {
     const tab: Tab = { path: snapshot.path, model, baseline, revision: draft ? draft.revision : snapshot.revision,
       bom: draft?.bom ?? snapshot.bom, eol: draft?.eol ?? snapshot.eol, dirty: model.getValue() !== baseline,
       deleted: false, keepOpen: true, conflict: draft && draft.revision !== snapshot.revision ? snapshot : null,
-      viewState: null, applying: false, decorations: new Map(), dispose: () => {} };
+      viewState: null, markdown: isMarkdownPath(snapshot.path) ? markdownState() : null,
+      applying: false, decorations: new Map(), dispose: () => {} };
     if (draft && model.getValue() === modelText(snapshot.text, tab.eol) && tab.bom === snapshot.bom) {
       tab.baseline = model.getValue(); tab.revision = snapshot.revision; tab.dirty = false; tab.conflict = null;
     }
@@ -283,6 +292,8 @@ export class Controller {
     if (intent.sequence === this.openSequence) {
       session.active = tab.path;
       session.selectedPath = tab.path;
+      this.markdownNavigation = null;
+      if (intent.line && tab.markdown?.mode === 'preview') tab.markdown.mode = 'split';
       this.navigation = intent.line ? { path: tab.path, line: intent.line, column: intent.column, endColumn: intent.endColumn, nonce: intent.sequence } : null;
     }
     this.persistMetadata(session);
@@ -304,6 +315,49 @@ export class Controller {
   }
 
   navigation: { path: string; line: number; column: number; endColumn?: number; nonce: number } | null = null;
+  markdownNavigation: { tab: Tab; fragment: string; nonce: number } | null = null;
+
+  setMarkdownMode(tab: Tab, mode: MarkdownViewMode) {
+    if (!tab.markdown || !this.session?.tabs.includes(tab)) return;
+    tab.markdown.mode = mode;
+    this.persistMetadata(this.session);
+    this.changed();
+  }
+
+  setMarkdownRatio(tab: Tab, ratio: number) {
+    if (!tab.markdown || !this.session?.tabs.includes(tab)) return;
+    tab.markdown.splitRatio = Math.max(0.2, Math.min(0.8, ratio));
+    this.markdownChanged(tab);
+    this.changed();
+  }
+
+  markdownChanged(tab: Tab) {
+    if (this.session?.tabs.includes(tab)) this.schedulePersist(this.session);
+  }
+
+  readPreviewImage(tab: Tab, path: string, current: () => boolean) {
+    const session = this.session;
+    const client = session?.client;
+    return this.imageReads.run(() => client!.call<ImageSnapshot>('/preview-image' + query({ workspaceId: session!.workspace.id, path })),
+      () => !this.disposed && !!session && this.session === session && session.client === client && this.activeTab === tab && tab.markdown?.mode !== 'edit' && current());
+  }
+
+  async openMarkdownLink(source: Tab, path: string, fragment: string) {
+    const session = this.session;
+    if (!session || this.activeTab !== source) return;
+    const target = await this.open(path);
+    this.assertSession(session);
+    if (this.activeTab !== target || !fragment || !target.markdown) return;
+    if (target.markdown.mode === 'edit') this.setMarkdownMode(target, 'split');
+    this.markdownNavigation = { tab: target, fragment, nonce: ++this.openSequence };
+    this.changed();
+  }
+
+  async openMarkdownExternal(url: string) {
+    if (!/^https?:\/\//i.test(url)) return;
+    try { if (await this.ctx.os?.openExternal(url)) return; } catch { /* Browser fallback below. */ }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 
   async save(tab = this.activeTab, session = this.session) {
     if (!tab || !session) return;
@@ -452,6 +506,8 @@ export class Controller {
       tab.dispose();
       const replacement = this.addTab(session, snapshot);
       replacement.viewState = viewState;
+      if (replacement.markdown && tab.markdown) replacement.markdown = { ...tab.markdown };
+      replacement.keepOpen = tab.keepOpen;
       return replacement;
     });
     session.tabs = reordered;
@@ -662,6 +718,7 @@ export class Controller {
       this.ctx.storage.set('session.v1:' + session.key, { version: 1, tabs: session.tabs.map(tab => tab.path), active: session.active,
         preview: session.tabs.find(tab => !tab.keepOpen)?.path || null,
         views: Object.fromEntries(session.tabs.filter(tab => tab.viewState).map(tab => [tab.path, tab.viewState!])),
+        markdown: Object.fromEntries(session.tabs.filter(tab => tab.markdown).map(tab => [tab.path, tab.markdown!])),
         bookmarks: session.bookmarks, expanded: [...session.expanded], selectedScript: session.selectedScript } satisfies SessionMetadata);
     } catch (error) { this.recoveryError = `Editor preferences could not be stored: ${error}`; }
   }
@@ -684,6 +741,7 @@ export class Controller {
   persistAll() { this.sessions.forEach(session => { void this.persist(session); }); }
   dispose() {
     this.persistAll(); this.disposed = true; ++this.generation;
+    this.imageReads.dispose();
     this.disposeIncompleteRestore();
     clearInterval(this.timer);
     this.draftTimers.forEach(clearTimeout);

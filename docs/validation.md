@@ -1,5 +1,39 @@
 # Validation
 
+## Markdown preview — 2026-11-11
+
+Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
+151.0.7922.34. **97 tests passed:** 44 backend, 30 frontend unit, and 23
+real Monaco browser tests. The POSIX-only named-pipe test is skipped on
+Windows; both internal and escaping image symlinks were exercised here.
+
+The added checks cover Markdown/GFM and sanitized HTML, duplicate and Unicode
+heading anchors, document/root-relative links, external SDK links and browser
+fallback, images without referrers, format/size/path checks, four-request
+concurrency, lazy reads, stale results, and object URL cleanup. Monaco checks
+exercise default Split, all three modes, live unsaved buffers, undo/cursor
+preservation, independent scrolling, drag/keyboard resizing, narrow stacking,
+light/dark themes, workspace/profile/connection isolation, reloads, file moves,
+draft restoration, external edits/conflicts, and preview keyboard shortcuts.
+
+The rebuilt bundle is **5.35 MiB** (16 MiB maximum). The actual Hermes loader
+check passes. Hermes `plugin-guard-v12` accepts both the repository and staged
+release with its default policy, without a force override; no high or critical
+findings are present. Informational findings remain for the bundled editor,
+backend operations, and development fixtures.
+
+An isolated actual Hermes browser host at revision `2bd378ed` passed Markdown
+rendering and local SVG loading through its real JSON REST bridge and CSP,
+live source edits/undo, Edit/Split/Preview, relative file and heading links,
+Open File, dark/Glass styling, and the narrow stacked layout. The probe used a
+disposable Hermes home and project under `.test-runtime/`; the live user's
+Hermes installation and profiles were not modified. Screenshots were inspected
+in both wide and narrow layouts.
+
+**Native Desktop verification remains unavailable locally.** The installed
+Desktop-derived browser host was exercised; this does not substitute for a
+native Desktop test. Linux/macOS CI has not been run from this environment.
+
 ## Recorded results — 2026-11-10
 
 Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium

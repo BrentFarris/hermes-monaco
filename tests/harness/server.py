@@ -45,7 +45,7 @@ async def csp(request, call_next):
     response = await call_next(request)
     # Same relevant restrictions as Hermes's browser host: no eval, no CDN,
     # module/worker blobs allowed, styles inline, fonts embedded as data URLs.
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; connect-src 'self'; object-src 'none'"
     return response
 
 

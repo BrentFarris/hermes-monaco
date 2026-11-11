@@ -120,6 +120,11 @@ def read(workspaceId: str, path: str, service: Service):
     return service.workspace(workspaceId).read(path)
 
 
+@router.get("/preview-image")
+def preview_image(workspaceId: str, path: str, service: Service):
+    return service.workspace(workspaceId).preview_image(path)
+
+
 @router.put("/file")
 def save(body: SaveRequest, service: Service):
     return service.workspace(body.workspaceId).write(body.path, body.text, body.expectedRevision, bom=body.bom)
