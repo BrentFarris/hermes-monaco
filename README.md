@@ -99,9 +99,12 @@ Before distributing a build, check both Hermes's loader and its separate install
 ```sh
 node scripts/check-host.mjs /path/to/hermes-agent
 python -B scripts/check-install.py --hermes-source /path/to/hermes-agent --report .build/install-scan.json
+python scripts/check-dependencies.py --hermes-source /path/to/hermes-agent
 ```
 
 The scan command includes Git-tracked and non-ignored new source files, mirroring a fresh repository installation. It exits unsuccessfully if Hermes requires confirmation or blocks installation. Add `--package .build/package/hermes-monaco` to check the release folder as well. It never changes the scanner or grants an override.
+
+The dependency check requires `uv` (CI pins 0.13.5). It resolves this plugin's runtime requirements against Hermes's complete lock in a temporary workspace, preserving every platform branch and installing nothing. `psutil` is a test-only dependency; process management at runtime uses Windows Job Objects or POSIX process groups, leaving Hermes's own `psutil` pins unconstrained.
 
 Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. All 54 automated tests passed on Windows. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, and Split/Expand smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
 

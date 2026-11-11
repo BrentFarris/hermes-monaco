@@ -54,6 +54,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run package
+      - name: Check Hermes runtime dependency compatibility
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install uv==0.13.5
+          python scripts/check-dependencies.py --hermes-source .test-runtime/hermes-sdk
       - name: Verify release package install policy
         if: runner.os == 'Linux'
         run: python -B scripts/check-install.py --hermes-source .test-runtime/hermes-sdk --package .build/package/hermes-monaco --report .build/package-install-scan.json

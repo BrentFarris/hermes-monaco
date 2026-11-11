@@ -5,7 +5,6 @@ description = "A Monaco workspace and managed script launcher for Hermes Desktop
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",
-  "psutil>=6,<8",
   "Send2Trash>=1.8.3,<2",
 ]
 
