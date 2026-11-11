@@ -76,7 +76,7 @@ export function Editor({ controller, tab }: { controller: Controller; tab: Tab |
     {tab?.deleted && <div className="hm-conflict" role="status"><span>This file was deleted on disk.</span><Button onClick={() => setCompare(true)}>Recover draft</Button></div>}
     <div className="hm-editor-stage">
       <div className="hm-editor" ref={element} style={{ visibility: tab ? 'visible' : 'hidden' }} />
-      {!tab && <div className="hm-editor-empty"><span className="hm-empty-mark">{'{ }'}</span><h2>Your project, in focus.</h2><p>Open a file from the sidebar to start editing.</p><div><kbd>Ctrl P</kbd> Open file <kbd>Ctrl Shift F</kbd> Search</div><p className="hm-subtle">Click the editor gutter to bookmark a line.</p></div>}
+      {!tab && <div className="hm-editor-empty"><span className="hm-empty-mark">{'{ }'}</span><h2>Your project, in focus.</h2><p>Open a file from the sidebar to start editing.</p><div><kbd>Ctrl Shift P</kbd> Open file <kbd>Ctrl Shift F</kbd> Search</div><p className="hm-subtle">Click the editor gutter to bookmark a line.</p></div>}
     </div>
     <div className="hm-status"><span>{tab ? cursor : 'Ready'}</span><span>{tab ? `${tab.eol.toUpperCase()} · UTF-8${tab.bom ? ' BOM' : ''} · ${tab.model.getLanguageId()}` : ''}</span><span>Guides {controller.prefs.guides ? controller.prefs.rulers.join(', ') : 'off'}</span></div>
     {compare && tab && <ConflictDialog controller={controller} tab={tab} onClose={() => setCompare(false)} />}

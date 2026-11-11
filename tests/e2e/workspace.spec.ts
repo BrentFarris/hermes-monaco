@@ -468,7 +468,7 @@ test('create/move Unicode files, quick open, and unsupported trash retains the f
   await page.getByLabel('Workspace-relative path').fill('source λ/draft λ.py');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('.hm-breadcrumbs')).toContainText('source λ');
-  await editor(page).click(); await page.keyboard.press('ControlOrMeta+p');
+  await editor(page).click(); await page.keyboard.press('ControlOrMeta+Shift+p');
   await page.getByLabel('Find file').fill('draft');
   await expect(page.locator('.hm-search-result')).toHaveCount(1);
   await page.locator('.hm-search-result').click();

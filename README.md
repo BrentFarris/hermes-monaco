@@ -32,7 +32,7 @@ Search uses Hermes-managed ripgrep (`hermes pm install ripgrep`), with `rg` on t
 
 - Single-click a file, search result, or bookmark to open an italic **preview tab**. Browsing another file reuses that tab; double-click the file or tab to keep it open. Editing also keeps it open, even after undoing or saving the changes.
 - **Middle-click** anywhere on a tab to close it. Unsaved files still offer Save, Discard, or Cancel.
-- **Ctrl/Cmd+P** opens a filename search; **Ctrl/Cmd+Shift+F** searches project text.
+- **Ctrl/Cmd+Shift+P** opens a filename search; **Ctrl/Cmd+Shift+F** searches project text. **Ctrl/Cmd+P** is left to Hermes.
 - **Ctrl/Cmd+S** saves the current file; **Ctrl/Cmd+Shift+S** saves all open workspace files.
 - **F5** saves dirty files and runs the selected script when focus is in Code. It also works in the Code side of Split with chat; chat, dialogs, and other views do not launch scripts. The shortcut follows the green Play button's enabled state and does not restart an already running script.
 - **Ctrl/Cmd+F** and Monaco's find/replace controls operate on the current file.

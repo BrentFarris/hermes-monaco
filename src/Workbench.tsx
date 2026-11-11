@@ -57,7 +57,7 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
     }
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const key = event.key.toLowerCase();
-    if (key === 'p') { event.preventDefault(); event.stopPropagation(); show('files', true); }
+    if (key === 'p' && event.shiftKey) { event.preventDefault(); event.stopPropagation(); show('files', true); }
     if (key === 'f' && event.shiftKey) { event.preventDefault(); event.stopPropagation(); show('search'); }
     if (key === 's') { event.preventDefault(); event.stopPropagation(); void controller.perform(() => event.shiftKey ? controller.saveAll() : controller.save()); }
   }}>
