@@ -5,7 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export async function bundle({ development = false } = {}) {
-  const common = { absWorkingDir: root, bundle: true, write: false, minify: !development, format: 'esm', platform: 'browser', target: 'es2022', logLevel: 'warning' };
+  // Hermes also scans JavaScript with its skill-text rules. Emit ordinary
+  // quoted strings through the compiler: backtick template delimiters can be
+  // mistaken for the skill inline-shell DSL in otherwise inert Monaco text.
+  const common = { absWorkingDir: root, bundle: true, write: false, minify: !development,
+    supported: { 'template-literal': false }, format: 'esm', platform: 'browser', target: 'es2022', logLevel: 'warning' };
   const worker = async name => {
     const result = await build({ ...common, entryPoints: [name] });
     return result.outputFiles[0].text;

@@ -18,6 +18,8 @@ npm run package
 
 The result is `.build/package/hermes-monaco/`. It contains both plugin halves, their licenses, and the scripts schema. Keep the whole folder together; do not install the checkout with `node_modules` or `.venv`. There are no runtime CDN requests. `desktop/plugin.js` includes Monaco, CSS, its icon font, editor and JSON workers, and syntax tokenizers. Only React and the Hermes SDK remain external.
 
+For a GitHub installation, use `https://github.com/BrentFarris/hermes-monaco` in Hermes's Plugins page. The built bundle must be committed and pushed before Retry can see a local fix. The build emits ordinary quoted JavaScript strings because Hermes's install scanner also recognizes a skill inline-shell syntax that can collide with compact template literals. Scanning remains enabled; no force option is required for the verified build. See [install scan troubleshooting](docs/validation.md#install-scan-regression) if an older commit reports a caution verdict.
+
 **Native Desktop, local backend:** copy the staged `hermes-monaco` folder to `$HERMES_HOME/plugins/hermes-monaco/` (normally `~/.hermes/plugins/hermes-monaco`). If using a release ZIP, extract its `hermes-monaco` folder there. Enable the Python half with `hermes plugins enable hermes-monaco` so Hermes admits the declared Python dependencies. Restart the backend if Hermes selects a new environment. In **Capabilities → Plugins**, choose **Rescan** and enable the Desktop half. Hermes copies `desktop/plugin.js` to its app-level desktop plugin inventory. Both halves are opt-in.
 
 **Desktop-derived browser app:** install and enable the complete package on the machine serving Hermes. Rescan/enable the Desktop half in the browser app's Plugins page, then reload if necessary. The browser host serves the same bundle through its desktop plugin endpoint. This plugin does not target the older `hermes dashboard` frontend.
@@ -91,6 +93,15 @@ npm run test:e2e
 ```
 
 `requirements-dev.lock` pins the test environment; `pyproject.toml` declares compatible runtime dependencies for Hermes's shared environment. `package-lock.json` locks JavaScript dependencies. `npm run build` type-checks, bundles, rejects unexpected runtime imports, and enforces the 16 MiB source limit. `npm run package` stages the release folder. `npm run dev` starts a loopback integration fixture at `http://127.0.0.1:4317`, using isolated copies of the packaged backend/UI and workspaces under `.test-runtime/`; it never uses your live Hermes profile. Set `PYTHON` to choose an interpreter and `CHROMIUM_PATH` for an existing Chromium executable.
+
+Before distributing a build, check both Hermes's loader and its separate install-time scanner against the target Hermes source checkout:
+
+```sh
+node scripts/check-host.mjs /path/to/hermes-agent
+python -B scripts/check-install.py --hermes-source /path/to/hermes-agent --report .build/install-scan.json
+```
+
+The scan command includes Git-tracked and non-ignored new source files, mirroring a fresh repository installation. It exits unsuccessfully if Hermes requires confirmation or blocks installation. Add `--package .build/package/hermes-monaco` to check the release folder as well. It never changes the scanner or grants an override.
 
 Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. All 54 automated tests passed on Windows. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, and Split/Expand smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
 

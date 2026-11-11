@@ -33,11 +33,30 @@ jobs:
         if: runner.os == 'macOS'
         run: command -v rg || brew install ripgrep
       - run: npm run build
+      - name: Check out the verified Hermes scanner and loader
+        if: runner.os == 'Linux'
+        uses: actions/checkout@v4
+        with:
+          repository: NousResearch/hermes-agent
+          ref: 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
+          path: .test-runtime/hermes-sdk
+          persist-credentials: false
+          sparse-checkout: |
+            tools
+            apps/desktop/src/contrib
+      - name: Verify Hermes loading and install policy
+        if: runner.os == 'Linux'
+        run: |
+          node scripts/check-host.mjs .test-runtime/hermes-sdk
+          python -B scripts/check-install.py --hermes-source .test-runtime/hermes-sdk --report .build/install-scan.json
       - run: npm test
       - run: python -m pytest
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run package
+      - name: Verify release package install policy
+        if: runner.os == 'Linux'
+        run: python -B scripts/check-install.py --hermes-source .test-runtime/hermes-sdk --package .build/package/hermes-monaco --report .build/package-install-scan.json
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Linux'
         with:
@@ -48,4 +67,6 @@ jobs:
         if: failure()
         with:
           name: test-results-${{ matrix.os }}
-          path: test-results
+          path: |
+            test-results
+            .build/*scan.json

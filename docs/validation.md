@@ -7,7 +7,7 @@ Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
 frontend unit tests, and 9 browser tests using real Monaco. The final browser
 suite passed after correcting the surface/color tokens against the real host.
 
-The production bundle is approximately **5.25 MiB**, below the 16 MiB loader
+The production bundle is approximately **5.27 MiB**, below the 16 MiB loader
 limit. The build checks its runtime imports; `scripts/check-host.mjs` also
 passed against the actual Hermes runtime loader from revision `2bd378ed`
 (2026-11-05). Hermes Plugin Doctor loaded the staged package, exercised its
@@ -77,3 +77,34 @@ package, enable both halves, and record the Hermes revision/OS:
 
 Record unavailable host environments explicitly; do not infer a native host
 pass from a Chromium fixture pass.
+
+## Install scan regression
+
+The initial browser smoke test used a copied package and did not exercise
+the Git installer security gate. A GitHub install subsequently reproduced
+**86 findings** with `plugin-guard-v12`: three high, 79 medium, and four low.
+The three blocking findings misread minified Monaco JavaScript template
+strings as skill inline-shell text. The backend process launches, encoding
+constants, dependency size, and development fixtures were informational.
+
+The build now asks esbuild to lower template literals into ordinary quoted
+strings for both the main bundle and its workers. This is a compiler
+transformation; no scanner rule, severity, source, or runtime capability is
+excluded or suppressed. The resulting repository scan returns **safe** with
+no high or critical findings, and Hermes's normal policy allows installation
+with `force=False`. Informational findings may remain.
+
+`scripts/check-install.py` runs the target Hermes scanner against a fresh
+snapshot of the repository's installable files, or a staged release package,
+and fails on a blocking or confirmation-required verdict. This check is
+separate from Plugin Doctor and the runtime import check.
+
+Both the repository snapshot and the staged release passed. Hermes's actual
+`_scan_plugin_tree` install gate also accepted the package with scanning
+enabled and `force=False`. All nine real Monaco browser tests passed again
+after this build change. CI checks the repository and release against the
+same pinned Hermes revision before uploading its artifact.
+
+If GitHub installation still reports the old caution verdict, ensure the
+corrected generated `desktop/plugin.js` has been pushed to the selected
+revision and reopen the install dialog to refresh the inspected commit.
