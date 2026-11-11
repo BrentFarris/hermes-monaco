@@ -1,0 +1,22 @@
+export type Route = { connection: string | null; profile: string; cwd: string; epoch: number };
+export type Workspace = { id: string; root: string; name: string };
+export type FileSnapshot = { path: string; text: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf'; size: number };
+export type Entry = { name: string; path: string; directory: boolean; size: number; linked: boolean; available: boolean };
+export type Bookmark = { id: string; path: string; line: number; label?: string; preview: string };
+export type Preferences = { rulers: number[]; guides: boolean; fontSize: number; tabSize: number; insertSpaces: boolean; wordWrap: boolean };
+export type Shell = 'default' | 'pwsh' | 'powershell' | 'cmd' | 'sh' | 'bash';
+export type ScriptFields = { command?: string; cwd?: string; shell?: Shell; env?: Record<string, string> };
+export type Script = ScriptFields & { id: string; name: string; command: string; platforms?: Partial<Record<'windows' | 'linux' | 'macos', ScriptFields>> };
+export type ScriptsConfig = { version: 1; scripts: Script[]; $schema?: string };
+export type ConfigSnapshot = { config: ScriptsConfig; revision: string | null };
+export type Run = { id: string; workspaceId: string; root: string; scriptId: string; name: string; command: string; status: 'starting' | 'running' | 'stopping' | 'exited' | 'failed' | 'stopped'; exitCode: number | null; started: number; ended: number | null; error: string | null };
+export type OutputChunk = { cursor: number; stream: 'stdout' | 'stderr'; text: string };
+export type Output = { run: Run; chunks: OutputChunk[]; cursor: number; truncated: boolean };
+export type SearchItem = { path: string; line?: number; column?: number; endColumn?: number; preview?: string };
+export type SearchOptions = { query: string; kind: 'files' | 'text'; case: boolean; word: boolean; regex: boolean; include: string[]; exclude: string[]; ignored: boolean };
+export type SearchResults = { items: SearchItem[]; truncated: boolean };
+export type Draft = { path: string; text: string; baseline: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf' };
+export type SessionMetadata = { version: 1; tabs: string[]; active: string | null; bookmarks: Bookmark[]; expanded: string[]; selectedScript: string;
+  views?: Record<string, import('monaco-editor').editor.ICodeEditorViewState> };
+export const isRunning = (run: Run) => ['starting', 'running', 'stopping'].includes(run.status);
+

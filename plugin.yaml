@@ -1,0 +1,7 @@
+name: hermes-monaco
+version: 0.1.0
+description: Monaco code workspace, project search, bookmarks, and shared script launchers for Hermes Desktop and Webapp.
+author: Brent Farris
+provides_tools: []
+provides_hooks: []
+

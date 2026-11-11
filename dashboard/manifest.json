@@ -1,0 +1,7 @@
+{
+  "name": "hermes-monaco",
+  "title": "Hermes Monaco",
+  "version": "0.1.0",
+  "description": "Backend for the Hermes Monaco Desktop/Webapp plugin",
+  "api": "plugin_api.py"
+}

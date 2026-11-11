@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hermes Monaco scripts",
+  "type": "object",
+  "required": ["version", "scripts"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"type": "string"},
+    "version": {"const": 1},
+    "scripts": {"type": "array", "maxItems": 100, "items": {"$ref": "#/definitions/script"}}
+  },
+  "definitions": {
+    "env": {"type": "object", "maxProperties": 128, "additionalProperties": {"type": "string"}},
+    "shell": {"enum": ["default", "pwsh", "powershell", "cmd", "sh", "bash"]},
+    "override": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "command": {"type": "string", "minLength": 1, "maxLength": 32768},
+        "cwd": {"type": "string", "minLength": 1},
+        "shell": {"$ref": "#/definitions/shell"},
+        "env": {"$ref": "#/definitions/env"}
+      }
+    },
+    "script": {
+      "type": "object", "required": ["id", "name", "command"], "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1, "maxLength": 32768},
+        "cwd": {"type": "string", "default": ".", "minLength": 1},
+        "shell": {"$ref": "#/definitions/shell", "default": "default"},
+        "env": {"$ref": "#/definitions/env"},
+        "platforms": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "windows": {"$ref": "#/definitions/override"},
+            "linux": {"$ref": "#/definitions/override"},
+            "macos": {"$ref": "#/definitions/override"}
+          }
+        }
+      }
+    }
+  }
+}

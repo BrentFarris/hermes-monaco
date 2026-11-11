@@ -1,0 +1,15 @@
+[project]
+name = "hermes-monaco"
+version = "0.1.0"
+description = "A Monaco workspace and managed script launcher for Hermes Desktop and Webapp"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "psutil>=6,<8",
+  "Send2Trash>=1.8.3,<2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/backend"]
+addopts = "-q"
+
