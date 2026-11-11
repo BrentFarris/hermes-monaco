@@ -3,8 +3,8 @@
 ## Recorded results — 2026-11-10
 
 Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
-151.0.7922.34. **55 automated tests passed:** 32 Python backend tests, 13
-frontend unit tests, and 10 browser tests using real Monaco. The browser
+151.0.7922.34. **59 automated tests passed:** 32 Python backend tests, 13
+frontend unit tests, and 14 browser tests using real Monaco. The browser
 suite covers the real host's surface/color tokens, CSS reset, and Glass styling.
 
 The production bundle is approximately **5.27 MiB**, below the 16 MiB loader
@@ -44,7 +44,8 @@ launches are separate from the user's Hermes profile.
 This verifies packaging, editor interaction and backend behavior, including
 profile/backend isolation, stale-result cancellation, draft restoration,
 external changes and conflicts, dirty-buffer search, ignore rules, bookmark
-movement, configurable rulers, JSON diagnostics, save-before-run cancellation,
+movement, preview-tab replacement and promotion, middle-click closing,
+configurable rulers, JSON diagnostics, save-before-run cancellation,
 run reconnection, narrow layouts, themes, and unload cleanup. Backend tests
 also cover path/symlink confinement, Unicode, BOM/line endings, atomic-write
 conflicts, configuration overrides, duplicate and concurrent starts, bounded
@@ -145,3 +146,20 @@ position after content changes and resizing, readable form backgrounds,
 narrow scrolling, and Escape/Cancel behavior. An actual isolated Hermes
 browser host also passed with dark mode and Glass CSS enabled: the scripts
 dialog was centered to within one pixel and its background alpha was 255.
+
+## Preview tabs and middle-click closing
+
+Four additional browser tests exercise single-click preview replacement,
+double-clicking files and tabs to keep them open, and promotion on editing
+that survives undo. Middle-clicking a background tab leaves the active editor
+selected and uses the same Save/Discard/Cancel dialog for unsaved files.
+
+Delayed-read checks cover double-clicks before a file finishes loading, edits
+to the previous preview during that load, and out-of-order preview reads.
+Failed reads leave the current preview intact. Preview and kept state survives
+workspace/profile switches and plugin reloads. Previously saved tab metadata
+without a preview marker restores as kept tabs.
+
+All 14 real Monaco browser tests, 13 frontend unit tests, and 32 backend tests
+passed. The rebuilt bundle passed Hermes's actual loader and install scanner;
+the scanner returned safe with its default policy and no override.

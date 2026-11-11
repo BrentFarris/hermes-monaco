@@ -57,6 +57,7 @@
 .hm-tab.is-active{background:var(--hm-bg);border-top-color:var(--hm-accent);color:var(--hm-text)}
 .hm-tab button{border:0;background:transparent;color:inherit;padding:8px;display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;font-size:12px}
 .hm-tab button[role=tab]{overflow:hidden;text-overflow:ellipsis;padding-left:12px}
+.hm-tab.is-preview button[role=tab]{font-style:italic}
 .hm-tab-icon{color:var(--hm-accent)}
 .hm-tab-state{font-size:9px;min-width:9px}
 .hm-tab .hm-tab-close{font-size:15px;padding:5px 8px 5px 2px}

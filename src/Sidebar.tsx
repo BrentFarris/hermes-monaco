@@ -38,7 +38,8 @@ export function Sidebar({ controller, mode, quickOpen, onClose }: { controller: 
     {mode === 'bookmarks' && !quickOpen && <div className="hm-bookmarks">
       {!session.bookmarks.length && <p className="hm-empty-copy">Click beside a line number to add a bookmark. Your bookmarks stay with this workspace.</p>}
       {[...session.bookmarks].sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line).map(mark => <div className="hm-bookmark" key={mark.id}>
-        <button onClick={() => void controller.perform(() => controller.open(mark.path, mark.line))}><strong>{mark.label || mark.preview.trim() || `Line ${mark.line}`}</strong><small>{mark.path}:{mark.line}</small></button>
+        <button onClick={() => void controller.perform(() => controller.preview(mark.path, mark.line))}
+          onDoubleClick={() => void controller.perform(() => controller.open(mark.path, mark.line))}><strong>{mark.label || mark.preview.trim() || `Line ${mark.line}`}</strong><small>{mark.path}:{mark.line}</small></button>
         <Button title="Name bookmark" aria-label="Name bookmark" onClick={() => setBookmark(mark)}>✎</Button>
         <Button title="Remove bookmark" aria-label="Remove bookmark" onClick={() => controller.updateBookmark(mark.id, null)}>×</Button>
       </div>)}
@@ -78,8 +79,8 @@ function Tree({ controller, path, depth }: { controller: Controller; path: strin
       disabled={!entry.available} title={entry.available ? entry.path : 'This link leaves the workspace'} className={'hm-tree-row ' + (session.selectedPath === entry.path ? 'is-selected' : '')}
       style={{ paddingLeft: 10 + depth * 14 }} onClick={() => {
         session.selectedPath = entry.path; controller.changed();
-        void controller.perform(() => entry.directory ? controller.toggleDirectory(entry.path) : controller.open(entry.path).then(() => {}));
-      }}>
+        void controller.perform(() => entry.directory ? controller.toggleDirectory(entry.path) : controller.preview(entry.path).then(() => {}));
+      }} onDoubleClick={() => { if (!entry.directory) void controller.perform(() => controller.open(entry.path)); }}>
       <span className="hm-tree-chevron">{entry.directory ? session.expanded.has(entry.path) ? '⌄' : '›' : ''}</span>
       <span className={entry.directory ? 'hm-folder-icon' : 'hm-file-icon'}>{entry.directory ? '▰' : '◇'}</span><span>{entry.name}</span>{entry.linked && <small>↗</small>}
     </button>
@@ -128,7 +129,8 @@ function Search({ controller, files }: { controller: Controller; files: boolean 
     <div className="hm-search-summary" role="status">{busy ? 'Searching…' : `${result.items.length} results${result.truncated ? ' · limit reached, narrow the search' : ''}`}</div>
     {error && <p className="hm-error" role="alert">{error}</p>}
     <div className="hm-search-results">{result.items.map((item, index) => <button key={item.path + ':' + index} className="hm-search-result"
-      onClick={() => void controller.perform(() => controller.open(item.path, item.line, item.column, item.endColumn))}>
+      onClick={() => void controller.perform(() => controller.preview(item.path, item.line, item.column, item.endColumn))}
+      onDoubleClick={() => void controller.perform(() => controller.open(item.path, item.line, item.column, item.endColumn))}>
       <strong>{item.path}{item.line ? `:${item.line}` : ''}</strong>{item.preview !== undefined && <code>{item.preview}</code>}
     </button>)}</div>
   </div>;

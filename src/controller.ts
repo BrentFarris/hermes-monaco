@@ -9,7 +9,7 @@ import { isRunning } from './types';
 
 export type Tab = {
   path: string; model: editor.ITextModel; baseline: string; revision: string | null;
-  bom: boolean; eol: 'lf' | 'crlf'; dirty: boolean; deleted: boolean;
+  bom: boolean; eol: 'lf' | 'crlf'; dirty: boolean; deleted: boolean; keepOpen: boolean;
   conflict: FileSnapshot | null; viewState: editor.ICodeEditorViewState | null;
   applying: boolean; decorations: Map<string, string>; dispose: () => void;
 };
@@ -19,6 +19,8 @@ export type Session = {
   bookmarks: Bookmark[]; expanded: Set<string>; directories: Map<string, Entry[]>;
   selectedPath: string; config: ConfigSnapshot; configError: string; selectedScript: string;
 };
+
+type OpenIntent = { sequence: number; keepOpen: boolean; replacePreview: boolean; line?: number; column: number; endColumn?: number };
 
 const emptyConfig = (): ConfigSnapshot => ({ config: { version: 1, scripts: [] }, revision: null });
 const metadataDefault = (): SessionMetadata => ({ version: 1, tabs: [], active: null, bookmarks: [], expanded: [''], selectedScript: '' });
@@ -47,7 +49,8 @@ export class Controller {
   private refreshIndex = 0;
   private timer: ReturnType<typeof setInterval> | undefined;
   private draftTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private pendingOpens = new Map<string, Promise<Tab>>();
+  private openSequence = 0;
+  private pendingOpens = new Map<string, { intent: OpenIntent; promise: Promise<Tab> }>();
   private pendingSaves = new Map<Tab, Promise<void>>();
   private cursor = 0;
   private lastRefresh = 0;
@@ -153,7 +156,9 @@ export class Controller {
           try {
             const disk = await client.call<FileSnapshot>('/file' + query({ workspaceId: workspace.id, path }));
             this.assertSession(session);
-            this.addTab(session, disk, draft).viewState = metadata.views?.[path] || null;
+            const tab = this.addTab(session, disk, draft);
+            tab.viewState = metadata.views?.[path] || null;
+            tab.keepOpen = metadata.preview !== path || tab.dirty || !!tab.conflict;
           } catch (error) {
             if (error instanceof StaleContext) throw error;
             if (draft) {
@@ -199,7 +204,7 @@ export class Controller {
     const baseline = modelText(draft?.baseline ?? snapshot.text, draft?.eol ?? snapshot.eol);
     const tab: Tab = { path: snapshot.path, model, baseline, revision: draft ? draft.revision : snapshot.revision,
       bom: draft?.bom ?? snapshot.bom, eol: draft?.eol ?? snapshot.eol, dirty: model.getValue() !== baseline,
-      deleted: false, conflict: draft && draft.revision !== snapshot.revision ? snapshot : null,
+      deleted: false, keepOpen: true, conflict: draft && draft.revision !== snapshot.revision ? snapshot : null,
       viewState: null, applying: false, decorations: new Map(), dispose: () => {} };
     if (draft && model.getValue() === modelText(snapshot.text, tab.eol) && tab.bom === snapshot.bom) {
       tab.baseline = model.getValue(); tab.revision = snapshot.revision; tab.dirty = false; tab.conflict = null;
@@ -209,6 +214,7 @@ export class Controller {
     const subscription = model.onDidChangeContent(() => {
       if (tab.applying) return;
       tab.dirty = model.getValue() !== tab.baseline;
+      tab.keepOpen = true;
       for (const bookmark of session.bookmarks.filter(mark => mark.path === tab.path)) {
         const range = model.getDecorationRange(tab.decorations.get(bookmark.id) || '');
         if (range) { bookmark.line = range.startLineNumber; bookmark.preview = model.getLineContent(bookmark.line); }
@@ -220,31 +226,81 @@ export class Controller {
     return tab;
   }
 
-  async open(path: string, line?: number, column = 1, endColumn?: number): Promise<Tab> {
+  preview(path: string, line?: number, column = 1, endColumn?: number) {
+    return this.open(path, line, column, endColumn, true);
+  }
+
+  async open(path: string, line?: number, column = 1, endColumn?: number, preview = false): Promise<Tab> {
     const session = this.session;
     if (!session) throw new StaleContext();
     this.assertSession(session);
-    let tab = session.tabs.find(item => item.path === path);
-    if (!tab) {
-      if (session.tabs.length >= 40) throw new Error('Close an editor tab before opening more than 40 files.');
-      const key = session.key + '\n' + path;
-      let pending = this.pendingOpens.get(key);
-      if (!pending) {
-        pending = session.client.call<FileSnapshot>('/file' + query({ workspaceId: session.workspace.id, path }))
-          .then(snapshot => { this.assertSession(session); return this.addTab(session, snapshot); })
-          .finally(() => { this.pendingOpens.delete(key); });
-        this.pendingOpens.set(key, pending);
-      }
-      tab = await pending;
+    const intent: OpenIntent = { sequence: ++this.openSequence, keepOpen: !preview, replacePreview: preview, line, column, endColumn };
+    const tab = session.tabs.find(item => item.path === path);
+    if (tab) {
+      if (!preview) tab.keepOpen = true;
+      this.finishOpen(session, tab, intent);
+      return tab;
     }
+
+    // Double-clicks can arrive before the first read completes. Share that
+    // read and upgrade its intent; never create duplicate Monaco models.
+    const key = this.generation + '\n' + session.key + '\n' + path;
+    const pending = this.pendingOpens.get(key);
+    if (pending) {
+      Object.assign(pending.intent, { ...intent, keepOpen: pending.intent.keepOpen || intent.keepOpen,
+        replacePreview: pending.intent.replacePreview });
+      return pending.promise;
+    }
+    const promise = this.loadTab(session, path, intent).finally(() => { this.pendingOpens.delete(key); });
+    this.pendingOpens.set(key, { intent, promise });
+    return promise;
+  }
+
+  private async loadTab(session: Session, path: string, intent: OpenIntent): Promise<Tab> {
+    const snapshot = await session.client.call<FileSnapshot>('/file' + query({ workspaceId: session.workspace.id, path }));
     this.assertSession(session);
-    session.active = path;
-    session.selectedPath = path;
+    const latest = intent.sequence === this.openSequence;
+    if (!latest && !intent.keepOpen) throw new StaleContext();
+    // Recheck after the read: the user may have edited or kept the old preview
+    // while this file loaded. Older kept opens may finish in the background.
+    const previous = session.tabs.find(tab => !tab.keepOpen);
+    if (previous && (previous.dirty || previous.conflict || previous.deleted)) previous.keepOpen = true;
+    const replaceIndex = intent.replacePreview && latest ? session.tabs.findIndex(tab => !tab.keepOpen) : -1;
+    if (session.tabs.length >= 40 && replaceIndex < 0) throw new Error('Close an editor tab before opening more than 40 files.');
+    const tab = this.addTab(session, snapshot);
+    tab.keepOpen = intent.keepOpen;
+    if (replaceIndex >= 0) {
+      const replaced = session.tabs[replaceIndex];
+      session.tabs.pop(); // addTab appended the new model; reuse the preview's position.
+      session.tabs[replaceIndex] = tab;
+      replaced.dispose();
+    }
+    this.finishOpen(session, tab, intent);
+    return tab;
+  }
+
+  private finishOpen(session: Session, tab: Tab, intent: OpenIntent) {
+    if (intent.sequence === this.openSequence) {
+      session.active = tab.path;
+      session.selectedPath = tab.path;
+      this.navigation = intent.line ? { path: tab.path, line: intent.line, column: intent.column, endColumn: intent.endColumn, nonce: intent.sequence } : null;
+    }
     this.persistMetadata(session);
     this.changed();
-    if (line) this.navigation = { path, line, column, endColumn, nonce: Date.now() };
+  }
+
+  selectTab(tab: Tab) {
+    const session = this.session;
+    if (!session?.tabs.includes(tab)) return;
+    this.finishOpen(session, tab, { sequence: ++this.openSequence, keepOpen: tab.keepOpen, replacePreview: false, column: 1 });
+  }
+
+  keepOpen(tab: Tab) {
+    const session = this.session;
+    if (!session?.tabs.includes(tab) || tab.keepOpen) return;
+    tab.keepOpen = true;
+    this.persistMetadata(session);
     this.changed();
-    return tab;
   }
 
   navigation: { path: string; line: number; column: number; endColumn?: number; nonce: number } | null = null;
@@ -336,8 +392,9 @@ export class Controller {
   async close(tab: Tab, discard = false) {
     const session = this.session;
     if (!session) return;
-    if (tab.dirty && !discard) throw new Error('Save or discard this file before closing it.');
     const index = session.tabs.indexOf(tab);
+    if (index < 0) return;
+    if (tab.dirty && !discard) throw new Error('Save or discard this file before closing it.');
     session.tabs.splice(index, 1);
     if (session.active === tab.path) session.active = session.tabs[Math.min(index, session.tabs.length - 1)]?.path || null;
     tab.dispose();
@@ -445,7 +502,7 @@ export class Controller {
             }
             tab.deleted = false;
           } catch (error) {
-            if (error instanceof ApiError && error.code === 'not_found') { tab.deleted = true; return; }
+            if (error instanceof ApiError && error.code === 'not_found') { tab.deleted = true; tab.keepOpen = true; return; }
             throw error;
           }
         }),
@@ -603,6 +660,7 @@ export class Controller {
   private persistMetadata(session: Session) {
     try {
       this.ctx.storage.set('session.v1:' + session.key, { version: 1, tabs: session.tabs.map(tab => tab.path), active: session.active,
+        preview: session.tabs.find(tab => !tab.keepOpen)?.path || null,
         views: Object.fromEntries(session.tabs.filter(tab => tab.viewState).map(tab => [tab.path, tab.viewState!])),
         bookmarks: session.bookmarks, expanded: [...session.expanded], selectedScript: session.selectedScript } satisfies SessionMetadata);
     } catch (error) { this.recoveryError = `Editor preferences could not be stored: ${error}`; }

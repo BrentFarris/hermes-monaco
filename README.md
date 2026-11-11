@@ -30,6 +30,8 @@ Search uses Hermes-managed ripgrep (`hermes pm install ripgrep`), with `rg` on t
 
 ## Editing
 
+- Single-click a file, search result, or bookmark to open an italic **preview tab**. Browsing another file reuses that tab; double-click the file or tab to keep it open. Editing also keeps it open, even after undoing or saving the changes.
+- **Middle-click** anywhere on a tab to close it. Unsaved files still offer Save, Discard, or Cancel.
 - **Ctrl/Cmd+P** opens a filename search; **Ctrl/Cmd+Shift+F** searches project text.
 - **Ctrl/Cmd+S** saves the current file; **Ctrl/Cmd+Shift+S** saves all open workspace files.
 - **Ctrl/Cmd+F** and Monaco's find/replace controls operate on the current file.
@@ -106,7 +108,7 @@ The scan command includes Git-tracked and non-ignored new source files, mirrorin
 
 The dependency check requires `uv` (CI pins 0.13.5). It resolves this plugin's runtime requirements against Hermes's complete lock in a temporary workspace, preserving every platform branch and installing nothing. `psutil` is a test-only dependency; process management at runtime uses Windows Job Objects or POSIX process groups, leaving Hermes's own `psutil` pins unconstrained.
 
-Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. All 55 automated tests passed on Windows, including dialogs under Glass styling and narrow layouts. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, Split/Expand, and dark/glass dialog smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
+Backend tests cover path confinement, revisions, BOM/CRLF, ignore rules, dirty search overlays, configuration, concurrent scripts, process tree termination, and output limits. Frontend tests cover routing and settings; Playwright exercises the built bundle and real Monaco under the browser host's relevant CSP restrictions. All 59 automated tests passed on Windows, including preview tabs, middle-click closing, dialogs under Glass styling, and narrow layouts. An isolated actual Hermes browser host also passed discovery, editing/saving, shared script execution/output, Split/Expand, and dark/glass dialog smoke tests. Native Desktop was unavailable locally. See [the validation record](docs/validation.md) for the environment, results, and remaining host checklist.
 
 ## API and architecture
 
@@ -133,4 +135,4 @@ Visible views poll bounded subsets of expanded directories and open files, with 
 
 ## Attribution
 
-Echo inspired the editor organization and column guide helper. The adapted helper retains Echo's MIT attribution in `THIRD_PARTY_NOTICES.md`. Monaco and its embedded dependencies retain their license notices in the bundle and distribution.
+Echo inspired the editor organization, preview tabs, and column guide helper. The adapted code retains Echo's MIT attribution in `THIRD_PARTY_NOTICES.md`. Monaco and its embedded dependencies retain their license notices in the bundle and distribution.

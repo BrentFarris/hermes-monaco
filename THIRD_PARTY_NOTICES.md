@@ -2,7 +2,7 @@
 
 ## Echo
 
-The `parseRulers` helper in `src/editorSettings.ts` was adapted from Echo's `web/src/code/columnGuides.ts`. Echo's editor was also consulted for behavioral inspiration; its UI implementation is not bundled.
+The `parseRulers` helper in `src/editorSettings.ts` was adapted from Echo's `web/src/code/columnGuides.ts`. Preview-tab behavior in `src/controller.ts` was adapted from `web/src/code/tabState.ts`: reuse a clean preview, keep it on double-click, and keep edited files. Echo's editor was also consulted for behavioral inspiration; its UI implementation is not bundled.
 
 MIT License
 

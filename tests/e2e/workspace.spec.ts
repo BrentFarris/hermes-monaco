@@ -32,6 +32,145 @@ test.beforeEach(async ({ page }) => {
 });
 test.afterEach(async ({ page }) => { expect(browserIssues.get(page)).toEqual([]); });
 
+test('preview tabs are reused, double-click keeps files and tabs, and editing keeps a preview', async ({ page }) => {
+  const tabs = page.getByRole('tab');
+  const previews = page.locator('.hm-tab.is-preview');
+  await openFile(page);
+  await expect(previews).toHaveCount(1);
+  await expect(tabs).toHaveCSS('font-style', 'italic');
+  await openFile(page, 'data.json');
+  await expect(tabs).toHaveCount(1);
+  await expect(previews).toContainText('data.json');
+  await page.getByRole('treeitem', { name: /main\.ts/ }).dblclick();
+  await expect(tabs).toHaveCount(1);
+  await expect(tabs).toContainText('main.ts');
+  await expect(previews).toHaveCount(0);
+  await openFile(page, 'data.json');
+  await expect(tabs).toHaveCount(2);
+  await page.getByRole('tab', { name: /main\.ts/ }).click();
+  await expect(previews).toContainText('data.json');
+  await page.getByRole('tab', { name: /data\.json/ }).click();
+  await expect(previews).toHaveCount(1); // selecting a tab does not keep it
+  await page.getByRole('tab', { name: /data\.json/ }).dblclick();
+  await expect(previews).toHaveCount(0);
+  await openFile(page, 'runner.py');
+  await expect(previews).toContainText('runner.py');
+  await editor(page).click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press('#');
+  await expect(previews).toHaveCount(0);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('.hm-tab.is-active .hm-tab-state')).toHaveText('');
+  await expect(previews).toHaveCount(0); // undoing the edit does not make it temporary again
+  await openFile(page, 'ignored.txt');
+  await expect(tabs).toHaveCount(4);
+  await expect(previews).toContainText('ignored.txt');
+  await page.screenshot({ path: '.build/preview-tabs.png' });
+});
+
+test('middle-click closes background tabs and preserves dirty Save, Discard and Cancel choices', async ({ page }) => {
+  const { a } = await fixture(page);
+  await page.getByRole('treeitem', { name: /main\.ts/ }).dblclick();
+  await page.getByRole('treeitem', { name: /data\.json/ }).dblclick();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await page.getByRole('tab', { name: /main\.ts/ }).click({ button: 'right' });
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await page.getByRole('tab', { name: /main\.ts/ }).click({ button: 'middle' });
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByRole('tab', { name: /data\.json/ })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: 'Close data.json', exact: true }).click({ button: 'middle' });
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await openFile(page);
+  await replaceText(page, '// saved by middle-click\n');
+  await openFile(page, 'data.json');
+  const main = page.getByRole('tab', { name: /main\.ts/ });
+  await main.click({ button: 'middle' });
+  await expect(page.getByRole('dialog', { name: 'Unsaved changes' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(main).toBeVisible();
+  await expect(page.getByRole('tab', { name: /data\.json/ })).toHaveAttribute('aria-selected', 'true');
+  await main.click({ button: 'middle' });
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(main).toHaveCount(0);
+  expect((await disk(page, a, 'main.ts')).text).toContain('saved by middle-click');
+  await openFile(page);
+  await replaceText(page, '// discarded by middle-click\n');
+  await main.click({ button: 'middle' });
+  await page.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(main).toHaveCount(0);
+  expect((await disk(page, a, 'main.ts')).text).toContain('saved by middle-click');
+});
+
+test('slow previews honor double-clicks, preserve newer edits and ignore superseded reads', async ({ page }) => {
+  await openFile(page);
+  let release!: () => void;
+  let gate = new Promise<void>(resolve => { release = resolve; });
+  let path = 'data.json';
+  let reads = 0;
+  await page.route('**/api/plugins/hermes-monaco/file?**', async route => {
+    if (new URL(route.request().url()).searchParams.get('path') === path) { reads++; await gate; }
+    await route.continue();
+  });
+  await page.getByRole('treeitem', { name: /data\.json/ }).dblclick();
+  await expect.poll(() => reads).toBe(1);
+  // The previous preview can still be edited while the new file is loading.
+  await replaceText(page, '// keep these newer edits\n');
+  release();
+  await expect(page.getByRole('tab', { name: /data\.json/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.locator('.hm-tab.is-preview')).toHaveCount(0);
+  await page.getByRole('tab', { name: /main\.ts/ }).click();
+  await expect(editor(page)).toContainText('keep these newer edits');
+  await page.getByRole('tab', { name: /data\.json/ }).click({ button: 'middle' });
+
+  path = 'runner.py'; reads = 0;
+  gate = new Promise<void>(resolve => { release = resolve; });
+  await page.getByRole('treeitem', { name: /runner\.py/ }).click();
+  await expect.poll(() => reads).toBe(1);
+  await openFile(page, 'data.json');
+  release();
+  await page.unrouteAll({ behavior: 'wait' });
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByRole('tab', { name: /runner\.py/ })).toHaveCount(0);
+  await expect(page.locator('.hm-tab.is-preview')).toContainText('data.json');
+  await expect(page.getByRole('tab', { name: /data\.json/ })).toHaveAttribute('aria-selected', 'true');
+
+  await page.route('**/api/plugins/hermes-monaco/file?**', route => {
+    if (new URL(route.request().url()).searchParams.get('path') !== 'runner.py') return route.continue();
+    return route.fulfill({ json: { error: { code: 'permission', message: 'Fixture read failure', status: 403 } } });
+  });
+  await page.getByRole('treeitem', { name: /runner\.py/ }).click();
+  await expect(page.locator('.hm-banner[role=alert]')).toContainText('Fixture read failure');
+  await expect(page.locator('.hm-tab.is-preview')).toContainText('data.json');
+  await expect(page.getByRole('tab')).toHaveCount(2);
+});
+
+test('kept and preview tabs restore separately across workspaces, profiles and reloads', async ({ page }) => {
+  const previews = page.locator('.hm-tab.is-preview');
+  await page.getByRole('treeitem', { name: /main\.ts/ }).dblclick();
+  await openFile(page, 'data.json');
+  await page.getByRole('button', { name: 'Project B' }).click();
+  await expect(page.getByText('No file open')).toBeVisible();
+  await openFile(page);
+  await expect(previews).toContainText('main.ts');
+  await page.getByRole('button', { name: 'Project A' }).click();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(previews).toContainText('data.json');
+  await page.evaluate(() => (window as any).hmTest.sdk.host.state.profile.set('other'));
+  await expect(page.getByText('No file open')).toBeVisible();
+  await openFile(page, 'runner.py');
+  await page.evaluate(() => (window as any).hmTest.sdk.host.state.profile.set('default'));
+  await expect(previews).toContainText('data.json');
+  await page.evaluate(() => (window as any).hmTest.reload());
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(previews).toContainText('data.json');
+  await openFile(page, 'runner.py');
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(previews).toContainText('runner.py');
+  await expect(page.getByRole('tab', { name: /main\.ts/ })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /data\.json/ })).toHaveCount(0);
+});
+
 test('real Monaco editing, multiple guides, dirty close choices and external conflicts', async ({ page }) => {
   const { a } = await fixture(page);
   const originalEol = (await disk(page, a, 'main.ts')).eol === 'crlf' ? '\r\n' : '\n';

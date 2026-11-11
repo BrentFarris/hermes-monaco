@@ -17,6 +17,7 @@ export type SearchOptions = { query: string; kind: 'files' | 'text'; case: boole
 export type SearchResults = { items: SearchItem[]; truncated: boolean };
 export type Draft = { path: string; text: string; baseline: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf' };
 export type SessionMetadata = { version: 1; tabs: string[]; active: string | null; bookmarks: Bookmark[]; expanded: string[]; selectedScript: string;
+  preview?: string | null;
   views?: Record<string, import('monaco-editor').editor.ICodeEditorViewState> };
 export const isRunning = (run: Run) => ['starting', 'running', 'stopping'].includes(run.status);
 

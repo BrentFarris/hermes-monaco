@@ -77,8 +77,12 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
         </nav>
         {sidebarOpen && <Sidebar key={session.key + sidebar + quickOpen} controller={controller} mode={sidebar} quickOpen={quickOpen} onClose={() => setSidebarOpen(false)} />}
         <main className="hm-main">
-          <div className="hm-tabs" role="tablist" aria-label="Open files">{session.tabs.map(tab => <div className={'hm-tab ' + (session.active === tab.path ? 'is-active' : '')} key={tab.path}>
-            <button role="tab" aria-selected={session.active === tab.path} title={tab.path} onClick={() => void controller.perform(() => controller.open(tab.path))}><span className="hm-tab-icon">◇</span>{tab.path.split('/').pop()}<span className="hm-tab-state">{tab.conflict || tab.deleted ? '!' : tab.dirty ? '●' : ''}</span></button>
+          <div className="hm-tabs" role="tablist" aria-label="Open files">{session.tabs.map(tab => <div className={'hm-tab ' + (session.active === tab.path ? 'is-active ' : '') + (tab.keepOpen ? '' : 'is-preview')} key={tab.path}
+            onMouseDown={event => { if (event.button === 1) event.preventDefault(); }}
+            onAuxClick={event => { if (event.button === 1) { event.preventDefault(); event.stopPropagation(); close(tab); } }}>
+            <button role="tab" aria-selected={session.active === tab.path} title={tab.path + (tab.keepOpen ? '' : ' (Preview — double-click to keep open)')}
+              aria-description={tab.keepOpen ? undefined : 'Preview tab. Double-click to keep open.'}
+              onClick={() => controller.selectTab(tab)} onDoubleClick={() => controller.keepOpen(tab)}><span className="hm-tab-icon">◇</span>{tab.path.split('/').pop()}<span className="hm-tab-state">{tab.conflict || tab.deleted ? '!' : tab.dirty ? '●' : ''}</span></button>
             <button className="hm-tab-close" aria-label={'Close ' + tab.path} onClick={() => close(tab)}>×</button>
           </div>)}{!session.tabs.length && <span className="hm-tab-placeholder">No file open</span>}</div>
           <Editor controller={controller} tab={controller.activeTab} />
