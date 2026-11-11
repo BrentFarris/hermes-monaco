@@ -13,7 +13,8 @@
 .hm-workbench input,.hm-workbench select,.hm-dialog input,.hm-dialog select,.hm-dialog textarea{font:inherit;color:var(--hm-text);background:var(--hm-bg);border:1px solid var(--hm-border);border-radius:5px;padding:6px 8px;min-width:0;max-width:100%;box-shadow:none}
 .hm-workbench input:focus,.hm-workbench select:focus,.hm-dialog input:focus,.hm-dialog select:focus,.hm-dialog textarea:focus{outline:1px solid var(--hm-accent);border-color:var(--hm-accent)}
 .hm-workbench input::placeholder,.hm-dialog input::placeholder,.hm-dialog textarea::placeholder{color:var(--hm-muted)}
-.hm-workbench option,.hm-dialog option{background:var(--hm-panel);color:var(--hm-text)}
+/* Native dropdown popups cannot composite the transparent Glass sidebar. */
+.hm-workbench option,.hm-dialog option{background:var(--ui-bg-elevated,var(--theme-neutral-card,#1d2027));color:var(--hm-text)}
 .hm-spacer{flex:1}
 .hm-toolbar{display:flex;align-items:center;gap:8px;min-height:54px;padding:8px 12px;border-bottom:1px solid var(--hm-border);flex:none}
 .hm-workspace-label{display:flex;align-items:center;gap:10px;min-width:105px;max-width:220px}
