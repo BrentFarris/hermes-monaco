@@ -7,6 +7,7 @@ import { ScriptsDialog } from './ScriptsDialog';
 import { RunOutput } from './RunOutput';
 import { isRunning } from './types';
 import { parseRulers } from './editorSettings';
+import { refKey, sameRef, scriptKey } from './project';
 
 export function Workbench({ controller, split, onSplit, onExpand }: { controller: Controller; split: boolean; onSplit(): void; onExpand(): void }) {
   useSyncExternalStore(controller.subscribe, controller.snapshot);
@@ -40,10 +41,12 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
   }, []);
   useEffect(() => { setScripts(false); setClosing(null); }, [session?.key]);
   const show = (mode: SidebarMode, files = false) => { setSidebar(mode); setQuickOpen(files); setSidebarOpen(true); };
-  const running = controller.runs.find(run => run.workspaceId === session?.workspace.id && run.scriptId === session.selectedScript && isRunning(run));
+  const scriptRoot = controller.selectedScriptRoot;
+  const running = controller.runs.find(run => run.workspaceId === scriptRoot?.workspace.id && run.scriptId === session?.selectedScript?.scriptId && isRunning(run));
   const runCount = controller.runs.filter(isRunning).length;
-  const selectedScript = session?.config.config.scripts.find(script => script.id === session.selectedScript);
-  const runDisabled = !selectedScript || !!session?.configError || !!running || controller.launching || controller.loading;
+  const selectedScript = controller.selectedScript;
+  const runDisabled = !selectedScript || !!scriptRoot?.error || !!scriptRoot?.configError || !!running || controller.launching || controller.loading || !!session?.updatingRoots;
+  const hasScripts = session?.roots.some(root => root.config.config.scripts.length);
   const close = (tab: Tab) => {
     if (tab.dirty) { setClosing(tab); setCloseError(''); }
     else void controller.perform(() => controller.close(tab));
@@ -62,23 +65,27 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
     if (key === 's') { event.preventDefault(); event.stopPropagation(); void controller.perform(() => event.shiftKey ? controller.saveAll() : controller.save()); }
   }}>
     <header className="hm-toolbar">
-      <div className="hm-workspace-label"><span className="hm-code-icon">{'</>'}</span><div><strong>Code</strong><span title={session?.workspace.root || controller.currentRoute.cwd}>{session?.workspace.name || 'Workspace'}</span></div></div>
+      <div className="hm-workspace-label"><span className="hm-code-icon">{'</>'}</span><div><strong>Code</strong><span title={session?.roots.map(root => root.workspace.root).join('\n') || controller.currentRoute.cwd}>{session?.name || 'Workspace'}</span></div></div>
       <span className="hm-toolbar-divider" />
-      <div className="hm-launch-controls"><select aria-label="Script" title={selectedScript?.command || 'Select a project script'} value={session?.selectedScript || ''}
-        disabled={!session || !!session.configError} onChange={event => controller.selectScript(event.target.value)}>
-        {!session?.config.config.scripts.length && <option value="">Add a script…</option>}
-        {session?.config.config.scripts.map(script => <option value={script.id} key={script.id}>{script.name}</option>)}
+      <div className="hm-launch-controls"><select aria-label="Script" title={selectedScript?.command || 'Select a project script'} value={scriptKey(session?.selectedScript || null)}
+        disabled={!session} onChange={event => controller.selectScript(event.target.value)}>
+        {!hasScripts && <option value="">Add a script…</option>}
+        {session?.roots.map(root => {
+          const options = root.config.config.scripts.map(script => <option disabled={!!root.error || !!root.configError} value={scriptKey({ rootKey: root.key, scriptId: script.id })} key={script.id}>{script.name}</option>);
+          return session.roots.length > 1 ? <optgroup label={root.label + (root.error || root.configError ? ' (unavailable)' : '')} key={root.key}>{options}</optgroup> : options;
+        })}
       </select><Button className="hm-play" title="Save files and run selected script (F5)" aria-label="Run selected script" aria-keyshortcuts="F5" disabled={runDisabled}
         onClick={() => void controller.perform(() => controller.launch())}>{controller.launching ? '…' : '▶'}</Button>
       {running && <><Button title="Stop selected script" aria-label="Stop selected script" className="hm-danger" onClick={() => void controller.perform(() => controller.stop(running.id))}>■</Button><Button title="Restart selected script" aria-label="Restart selected script" disabled={controller.launching} onClick={() => void controller.perform(() => controller.launch(true))}>↻</Button></>}
-      <Button title="Edit scripts" aria-label="Edit scripts" disabled={!session} onClick={() => setScripts(true)}>⋯</Button></div>
+      <Button title="Edit scripts" aria-label="Edit scripts" disabled={!session?.roots.length || controller.loading || !!session?.updatingRoots} onClick={() => setScripts(true)}>⋯</Button></div>
       <span className="hm-spacer" />
       <Button title="Editor settings" aria-label="Editor settings" onClick={() => setSettings(true)}>⚙</Button>
       <Button className="hm-layout-button" onClick={split ? onExpand : onSplit}>{split ? 'Expand' : 'Split with chat'}</Button>
     </header>
     {controller.error && <div className="hm-banner hm-error" role="alert"><span>{controller.error}</span><Button onClick={() => void controller.perform(() => controller.activate())}>Reconnect</Button><Button aria-label="Dismiss error" onClick={() => { controller.error = ''; controller.changed(); }}>×</Button></div>}
     {controller.recoveryError && <div className="hm-banner hm-error" role="alert">{controller.recoveryError}</div>}
-    {session?.configError && <div className="hm-banner hm-error" role="alert"><span>{session.configError}</span><Button onClick={() => void controller.perform(() => controller.open('.hermes/scripts.json'))}>Open configuration</Button></div>}
+    {controller.projectError && <div className="hm-banner hm-error" role="alert"><span>{controller.projectError}</span><Button onClick={() => void controller.perform(() => controller.refreshProject())}>Retry folders</Button></div>}
+    {session?.roots.filter(root => root.configError).map(root => <div className="hm-banner hm-error" role="alert" key={root.key}><span>{session.roots.length > 1 ? root.label + ': ' : ''}{root.configError}</span><Button onClick={() => void controller.perform(() => controller.open({ rootKey: root.key, path: '.hermes/scripts.json' }))}>Open configuration</Button></div>)}
     {!session || controller.loading ? <div className="hm-main-empty"><span className="hm-empty-mark">{'{ }'}</span><h2>{controller.loading ? 'Opening workspace…' : 'Open a project to begin'}</h2><p>{controller.loading ? 'Restoring files and editor state.' : 'Code follows the active chat’s workspace folder.'}</p>{!controller.loading && controller.currentRoute.cwd && <Button onClick={() => void controller.perform(() => controller.activate())}>Retry connection</Button>}</div> : <>
       <div className="hm-work-area">
         <nav className="hm-activity" aria-label="Editor views">{(['files', 'search', 'bookmarks'] as const).map((mode, index) => <Button key={mode} title={mode[0].toUpperCase() + mode.slice(1)} aria-label={mode[0].toUpperCase() + mode.slice(1)} aria-pressed={sidebarOpen && sidebar === mode}
@@ -87,13 +94,13 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
         </nav>
         {sidebarOpen && <Sidebar key={session.key + sidebar + quickOpen} controller={controller} mode={sidebar} quickOpen={quickOpen} onClose={() => setSidebarOpen(false)} />}
         <main className="hm-main">
-          <div className="hm-tabs" role="tablist" aria-label="Open files">{session.tabs.map(tab => <div className={'hm-tab ' + (session.active === tab.path ? 'is-active ' : '') + (tab.keepOpen ? '' : 'is-preview')} key={tab.path}
+          <div className="hm-tabs" role="tablist" aria-label="Open files">{session.tabs.map(tab => <div className={'hm-tab ' + (sameRef(session.active, tab) ? 'is-active ' : '') + (tab.keepOpen ? '' : 'is-preview')} key={refKey(tab)}
             onMouseDown={event => { if (event.button === 1) event.preventDefault(); }}
             onAuxClick={event => { if (event.button === 1) { event.preventDefault(); event.stopPropagation(); close(tab); } }}>
-            <button role="tab" aria-selected={session.active === tab.path} title={tab.path + (tab.keepOpen ? '' : ' (Preview — double-click to keep open)')}
+            <button role="tab" aria-selected={sameRef(session.active, tab)} title={controller.label(tab) + (tab.keepOpen ? '' : ' (Preview — double-click to keep open)')}
               aria-description={tab.keepOpen ? undefined : 'Preview tab. Double-click to keep open.'}
-              onClick={() => controller.selectTab(tab)} onDoubleClick={() => controller.keepOpen(tab)}><span className="hm-tab-icon">◇</span>{tab.path.split('/').pop()}<span className="hm-tab-state">{tab.conflict || tab.deleted ? '!' : tab.dirty ? '●' : ''}</span></button>
-            <button className="hm-tab-close" aria-label={'Close ' + tab.path} onClick={() => close(tab)}>×</button>
+              onClick={() => controller.selectTab(tab)} onDoubleClick={() => controller.keepOpen(tab)}><span className="hm-tab-icon">◇</span>{tab.path.split('/').pop()}{(session.roots.length > 1 || controller.detached(tab)) && <small> · {controller.root(tab).label}</small>}<span className="hm-tab-state">{controller.detached(tab) || tab.conflict || tab.deleted ? '!' : tab.dirty ? '●' : ''}</span></button>
+            <button className="hm-tab-close" aria-label={'Close ' + controller.label(tab)} onClick={() => close(tab)}>×</button>
           </div>)}{!session.tabs.length && <span className="hm-tab-placeholder">No file open</span>}</div>
           <Editor controller={controller} tab={controller.activeTab} />
           {controller.outputOpen && <RunOutput controller={controller} />}
@@ -102,9 +109,9 @@ export function Workbench({ controller, split, onSplit, onExpand }: { controller
     </>}
     {settings && <Settings controller={controller} onClose={() => setSettings(false)} />}
     {scripts && session && <ScriptsDialog controller={controller} onClose={() => setScripts(false)} />}
-    {closing && <Modal title="Unsaved changes" onClose={() => setClosing(null)}><p>Save changes to <strong>{closing.path}</strong> before closing?</p>{closeError && <p className="hm-error">{closeError}</p>}<footer>
+    {closing && <Modal title="Unsaved changes" onClose={() => setClosing(null)}><p>Save changes to <strong>{controller.label(closing)}</strong> before closing?</p>{controller.detached(closing) && <p>Add its folder back in Hermes to save this draft.</p>}{closeError && <p className="hm-error">{closeError}</p>}<footer>
       <Button onClick={() => setClosing(null)}>Cancel</Button><Button onClick={async () => { await controller.close(closing, true); setClosing(null); }}>Discard</Button>
-      <Button className="hm-primary" onClick={async () => { try { await controller.save(closing); if (closing.dirty) throw new Error('The file changed while saving.'); await controller.close(closing); setClosing(null); } catch (e) { setCloseError(e instanceof Error ? e.message : String(e)); } }}>Save</Button>
+      <Button className="hm-primary" disabled={controller.detached(closing)} onClick={async () => { try { await controller.save(closing); if (closing.dirty) throw new Error('The file changed while saving.'); await controller.close(closing); setClosing(null); } catch (e) { setCloseError(e instanceof Error ? e.message : String(e)); } }}>Save</Button>
     </footer></Modal>}
   </div>;
 }

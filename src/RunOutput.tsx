@@ -27,7 +27,7 @@ export function RunOutput({ controller }: { controller: Controller }) {
         target.addEventListener('pointermove', move); target.addEventListener('pointerup', finish); target.addEventListener('pointercancel', finish);
       }} />
     <header><strong>Run Output</strong><select aria-label="View run" value={controller.selectedRun} onChange={e => { controller.selectRun(e.target.value); follow.current = true; void controller.perform(() => controller.refreshRuns()); }}>
-      <option value="">Select a run…</option>{controller.runs.map(item => <option key={item.id} value={item.id}>{item.name} · {item.status}{item.workspaceId !== controller.session?.workspace.id ? ' · ' + item.root.split(/[\\/]/).pop() : ''}</option>)}
+      <option value="">Select a run…</option>{controller.runs.map(item => <option key={item.id} value={item.id}>{item.name} · {item.status} · {controller.session?.roots.find(root => root.workspace.id === item.workspaceId)?.label || item.root}</option>)}
     </select><span className="hm-spacer" /><Input aria-label="Filter output" placeholder="Filter output…" value={filter} onChange={e => setFilter(e.target.value)} />
       {run && isRunning(run) && <Button className="hm-danger" onClick={() => void controller.perform(() => controller.stop(run.id))}>■ Stop</Button>}
       <Button aria-label="Hide output" onClick={() => { controller.outputOpen = false; controller.changed(); }}>×</Button>

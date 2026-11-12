@@ -1,5 +1,11 @@
 export type Route = { connection: string | null; profile: string; cwd: string; epoch: number };
 export type Workspace = { id: string; root: string; name: string };
+export type FileRef = { rootKey: string; path: string };
+export type ScriptRef = { rootKey: string; scriptId: string };
+export type ProjectInfo = { id: string; name: string; primary_path?: string | null; folders: { path: string; label?: string | null; is_primary?: boolean }[] };
+export type ProjectMetadata = { version: 1; tabs: FileRef[]; active: FileRef | null; collapsed: string[]; selectedScript: ScriptRef | null;
+  roots?: { key: string; path: string; label: string }[];
+  detachedRoots: { key: string; path: string; label: string }[] };
 export type FileSnapshot = { path: string; text: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf'; size: number };
 export type ImageSnapshot = { mimeType: string; revision: string; dataBase64: string };
 export type MarkdownViewMode = 'edit' | 'split' | 'preview';
@@ -18,6 +24,7 @@ export type Output = { run: Run; chunks: OutputChunk[]; cursor: number; truncate
 export type SearchItem = { path: string; line?: number; column?: number; endColumn?: number; preview?: string };
 export type SearchOptions = { query: string; kind: 'files' | 'text'; case: boolean; word: boolean; regex: boolean; include: string[]; exclude: string[]; ignored: boolean };
 export type SearchResults = { items: SearchItem[]; truncated: boolean };
+export type ProjectSearchResults = { items: (SearchItem & FileRef)[]; truncated: boolean; errors?: string[] };
 export type Draft = { path: string; text: string; baseline: string; revision: string | null; bom: boolean; eol: 'lf' | 'crlf' };
 export type SessionMetadata = { version: 1; tabs: string[]; active: string | null; bookmarks: Bookmark[]; expanded: string[]; selectedScript: string;
   preview?: string | null;

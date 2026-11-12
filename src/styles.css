@@ -64,6 +64,13 @@
 .hm-tab .hm-tab-close{font-size:15px;padding:5px 8px 5px 2px}
 .hm-tab-close:hover{color:var(--hm-text)}
 .hm-tab-placeholder{font-size:11px;color:var(--hm-muted);padding:10px 16px}
+.hm-root-group+.hm-root-group{border-top:1px solid var(--hm-border);margin-top:6px}
+.hm-root-group .hm-root{width:100%;height:auto;min-height:30px;text-align:left;font-weight:600}
+.hm-root-error{padding:8px 12px;color:var(--hm-muted);font-size:12px;overflow-wrap:anywhere;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.hm-tab small{color:var(--hm-muted);font-size:10px}
+.hm-script-fieldset{border:0;padding:0;margin:0;min-width:0}
+.hm-script-root-label{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.hm-script-root-label select{flex:1;min-width:0}
 .hm-editor-column{display:flex;flex:1;flex-direction:column;min-height:0;min-width:0}
 .hm-editor-heading{display:flex;align-items:center;min-height:32px;flex:none;gap:8px;border-bottom:1px solid var(--hm-border)}
 .hm-breadcrumbs{flex:1;min-width:0;padding:6px 17px;color:var(--hm-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

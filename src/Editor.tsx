@@ -6,6 +6,7 @@ import { applyTheme, monaco } from './monaco';
 import { Button, Modal } from './components';
 import { MarkdownPreview } from './MarkdownPreview';
 import type { MarkdownViewMode } from './types';
+import { sameRef } from './project';
 
 export function Editor({ controller, tab }: { controller: Controller; tab: Tab | null }) {
   const element = useRef<HTMLDivElement>(null);
@@ -87,7 +88,7 @@ export function Editor({ controller, tab }: { controller: Controller; tab: Tab |
   }, [controller.prefs]);
   useEffect(() => {
     const target = controller.navigation;
-    if (!target || target.path !== tab?.path || !instance.current) return;
+    if (!target || !sameRef(target, tab) || !instance.current) return;
     instance.current.setSelection(new monaco.Range(target.line, target.column, target.line, target.endColumn || target.column));
     instance.current.revealLineInCenter(target.line); instance.current.focus();
   }, [controller.navigation, tab]);
@@ -99,11 +100,12 @@ export function Editor({ controller, tab }: { controller: Controller; tab: Tab |
   };
 
   return <section className="hm-editor-column">
-    {tab && <div className="hm-editor-heading"><div className="hm-breadcrumbs" title={tab.path}>{tab.path.split('/').join('  /  ')}</div>
+    {tab && <div className="hm-editor-heading"><div className="hm-breadcrumbs" title={controller.root(tab).workspace.root + '/' + tab.path}>{controller.label(tab).split('/').join('  /  ')}</div>
       {tab.markdown && <div className="hm-markdown-modes" role="group" aria-label="Markdown view">
         {(['edit', 'split', 'preview'] as const).map(value => <Button key={value} aria-pressed={mode === value} onClick={() => changeMode(value)}>{value[0].toUpperCase() + value.slice(1)}</Button>)}
       </div>}
     </div>}
+    {tab && controller.detached(tab) && <div className="hm-conflict" role="status">Folder removed from project. This draft is preserved; add the folder back in Hermes to save it.</div>}
     {tab?.conflict && <div className="hm-conflict" role="status"><span>Changed on disk. Your edits are preserved.</span><Button onClick={() => setCompare(true)}>Compare versions</Button></div>}
     {tab?.deleted && <div className="hm-conflict" role="status"><span>This file was deleted on disk.</span><Button onClick={() => setCompare(true)}>Recover draft</Button></div>}
     <div className="hm-editor-stage" ref={stage} data-mode={mode} data-stacked={stacked}>

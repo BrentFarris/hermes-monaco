@@ -146,7 +146,7 @@ export function MarkdownPreview({ controller, tab }: { controller: Controller; t
   useEffect(() => {
     view.current = new DocumentPreview(host.current!, controller, tab);
     return () => { view.current?.dispose(); view.current = null; };
-  }, [controller, tab]);
+  }, [controller, tab, controller.session?.client]);
   useEffect(() => { if (tab.markdown?.mode === 'preview') host.current?.focus({ preventScroll: true }); }, [tab, tab.markdown?.mode]);
   useEffect(() => {
     const target = controller.markdownNavigation;

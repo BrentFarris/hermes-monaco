@@ -4,6 +4,7 @@ import { Controller } from './controller';
 import { Workbench } from './Workbench';
 import { initializeMonaco } from './monaco';
 import styles from './styles.css';
+import type { ProjectInfo } from './types';
 
 export default {
   id: 'hermes-monaco',
@@ -23,7 +24,10 @@ export default {
     const route = () => ({ cwd: sdk.host.state.cwd.get(), profile: sdk.host.state.profile.get(),
       connection: sdk.host.state.connectionId?.get() || null,
       epoch: typeof sdk.gatewayActivationEpoch === 'function' ? sdk.gatewayActivationEpoch() : 0 });
-    const controller = new Controller(ctx, route);
+    const controller = new Controller(ctx, route, undefined, sdk.host.request ? async captured => {
+      const result = await sdk.host.request!<{ project: ProjectInfo | null }>('projects.for_cwd', { cwd: captured.cwd, profile: captured.profile });
+      return result.project;
+    } : undefined);
     let closeSplit: (() => void) | null = null;
     const expand = () => { closeSplit?.(); closeSplit = null; sdk.host.navigate('/hermes-monaco'); };
     const split = () => {
@@ -45,7 +49,8 @@ export default {
     ctx.register({ id: 'nav', area: sdk.SIDEBAR_NAV_AREA, data: { path: '/hermes-monaco', label: 'Code', codicon: 'code' } });
     ctx.register({ id: 'open', area: sdk.PALETTE_AREA, data: { id: 'hermes-monaco.open', label: 'Code: Open workspace', keywords: ['editor', 'monaco', 'files'], run: expand } });
     ctx.register({ id: 'split', area: sdk.PALETTE_AREA, data: { id: 'hermes-monaco.split', label: 'Code: Split with chat', run: split } });
-    ctx.addEventListener(window, 'focus', () => { controller.routeChanged(); void controller.perform(() => controller.refresh()); });
+    ctx.onEvent?.('projects.changed', () => { void controller.perform(() => controller.refreshProject()); });
+    ctx.addEventListener(window, 'focus', () => { controller.routeChanged(); void controller.perform(() => controller.refreshProject()); });
     ctx.addEventListener(window, 'pagehide', () => controller.persistAll());
     ctx.addEventListener(window, 'beforeunload', event => {
       controller.persistAll();

@@ -1,5 +1,43 @@
 # Validation
 
+## Multiple project folders — 2026-11-11
+
+Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
+151.0.7922.34. **112 tests passed:** 44 backend, 37 frontend unit, and 31
+real Monaco browser tests. The POSIX-only named-pipe test remains skipped
+on Windows. Backend filesystem contracts and dependencies are unchanged.
+
+The added coverage exercises identical paths and script IDs in different roots,
+independent edits/saves/bookmarks, root-local Markdown links/images, shared
+temporary tabs, labelled search and quick-open results, two-request concurrency
+and the 500-result limit, dirty overlays, nested roots, duplicate labels, Unicode,
+unavailable folders, and missing/transient project RPC behavior. It checks root
+reordering, undo and Markdown state, clean-tab closure, detached dirty drafts,
+removal while Code is closed, reload/reattachment, v1 metadata and draft import, project/profile/backend
+isolation, per-folder script dialog edits, concurrent runs, save-all before F5,
+invalid configuration isolation, and stale/cancelled work during membership
+changes. Existing path traversal and symlink-confinement tests still pass.
+
+An isolated **actual Hermes browser host** at revision `2bd378ed` passed
+`projects.for_cwd` discovery and live `projects.changed` updates with a two-root
+project. The probe verified independent saves, grouped launchers, two concurrent
+scripts with the same ID, F5 saving both folders, script-dialog folder selection,
+root-local Markdown/images, combined Open File, and removal/reattachment while a
+dirty draft and running process remained available. It reported no browser
+errors. Wide and narrow screenshots were inspected with dark/Glass styling.
+The disposable home and project lived under `.test-runtime/`; the owned gateway
+was stopped after the probe. No live Hermes profiles were modified.
+
+The rebuilt bundle is **5.37 MiB**, below the **16 MiB** limit. Hermes's actual
+runtime import/rewriting check and the default install scanner pass for both
+the repository snapshot and staged package, without a force override.
+
+**Native Desktop remains unverified locally.** The Desktop-derived browser host
+was exercised; Linux/macOS CI and the native executable were not available in
+this environment. One full-suite attempt hit Chromium's `ERR_NO_BUFFER_SPACE`;
+the remaining tests passed on retry, and a subsequent complete 31-test run
+passed. The final focused multi-root suite was rerun after review refinements.
+
 ## Markdown preview — 2026-11-11
 
 Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium
@@ -95,11 +133,14 @@ Use a new Hermes home/profile and a disposable workspace. Install the staged
 package, enable both halves, and record the Hermes revision/OS:
 
 - Native Desktop: Code appears in navigation and the palette; the active
-  chat's cwd is the editor root. Split/Expand use the host workspace panes.
+  chat's cwd resolves its project roots. Split/Expand use the host workspace panes.
 - Desktop-derived browser app: package discovery, module import and editor/
   JSON workers load without CSP violations or network dependencies.
 - Switch profiles, backend connections, and folders rapidly; drafts and
   bookmarks return only in their owning workspace.
+- Add/reorder/remove Hermes project folders. Verify shared tab order, one
+  temporary tab, duplicate filenames, legacy state, detached drafts, and
+  independent search/bookmark/Markdown/file operations across roots.
 - Edit/save a Unicode path; change it externally while clean and while dirty;
   compare and resolve conflicts; cancel closing a dirty tab.
 - Check light/dark themes, narrow layouts, keyboard find/replace, multiple
@@ -107,6 +148,8 @@ package, enable both halves, and record the Hermes revision/OS:
 - Add a shared script, Play, Stop, Restart, run another script concurrently,
   switch folders, close Code, and reconnect to live output. Restart the
   backend and verify its owned children have exited.
+- Edit script configurations in multiple roots without losing dialog edits;
+  run identical script IDs concurrently and change membership during save.
 - Rescan/reload/disable the plugin and verify its views, workers, event
   listeners and models are released. Re-enable and restore a dirty draft.
 

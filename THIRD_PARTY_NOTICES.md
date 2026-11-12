@@ -2,7 +2,7 @@
 
 ## Echo
 
-The `parseRulers` helper in `src/editorSettings.ts` was adapted from Echo's `web/src/code/columnGuides.ts`. Preview-tab behavior in `src/controller.ts` was adapted from `web/src/code/tabState.ts`: reuse a clean preview, keep it on double-click, and keep edited files. Markdown rendering, DOM patching, and the subscription lifecycle in `src/markdown.ts` and `src/MarkdownPreview.tsx` adapt `web/src/code/markdownPreview.ts`; its document styling informed the Hermes-themed rules in `src/styles.css`. Echo's editor was also consulted for behavioral inspiration.
+The `parseRulers` helper in `src/editorSettings.ts` was adapted from Echo's `web/src/code/columnGuides.ts`. Preview-tab behavior in `src/controller.ts` was adapted from `web/src/code/tabState.ts`: reuse a clean preview, keep it on double-click, and keep edited files. Markdown rendering, DOM patching, and the subscription lifecycle in `src/markdown.ts` and `src/MarkdownPreview.tsx` adapt `web/src/code/markdownPreview.ts`; its document styling informed the Hermes-themed rules in `src/styles.css`. Multi-folder identity and tree organization were informed by `web/src/code/types.ts`, `codeView.ts`, and `editorApi.ts`; Hermes project discovery and per-root backend bindings are implemented here using Hermes's APIs. Echo's editor was also consulted for behavioral inspiration.
 
 MIT License
 

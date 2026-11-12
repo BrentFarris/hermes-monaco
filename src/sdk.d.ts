@@ -7,6 +7,7 @@ declare module '@hermes/plugin-sdk' {
     source: string;
     register(contribution: { id: string; area: string; title?: string; order?: number; data?: unknown; render?: () => ReactNode }): () => void;
     onDispose(callback: () => void): void;
+    onEvent?(type: string, listener: (event: unknown) => void): () => void;
     addEventListener(target: EventTarget, event: string, callback: EventListener): () => void;
     storage: { get<T>(key: string, fallback: T): T; set(key: string, value: unknown): void; remove(key: string): void };
     os?: { openExternal(url: string): Promise<boolean> };
@@ -16,6 +17,7 @@ declare module '@hermes/plugin-sdk' {
   export const host: {
     state: { cwd: Atom<string>; profile: Atom<string>; connectionId?: Atom<string | null>; gateway: Atom<string> };
     navigate(path: string): void;
+    request?<T>(method: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T>;
     notify(options: { kind: 'error' | 'info' | 'success' | 'warning'; message: string }): unknown;
     openWorkspace?: (id: string, options: { dock?: { pane: string; pos: 'right' | 'center' }; minWidth?: string; title: string; render: () => ReactNode; onClose?: () => void }) => () => void;
   };

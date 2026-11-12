@@ -5,13 +5,58 @@ import type { Script, ScriptsConfig, Shell } from './types';
 
 export function ScriptsDialog({ controller, onClose }: { controller: Controller; onClose(): void }) {
   const session = controller.session!;
-  const [config, setConfig] = useState<ScriptsConfig>(() => structuredClone(session.config.config));
-  const [revision] = useState(session.config.revision);
-  const [selected, setSelected] = useState(0);
+  const [roots] = useState(() => [...session.roots]);
+  const [rootKey, setRootKey] = useState(controller.selectedScriptRoot?.key || session.roots.find(root => root.key === controller.activeTab?.rootKey)?.key || session.primary);
+  const [drafts, setDrafts] = useState(() => new Map(roots.map(root => [root.key, { config: structuredClone(root.config.config), revision: root.config.revision, dirty: false }])));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const root = roots.find(item => item.key === rootKey)!;
+  const dirty = [...drafts.values()].some(draft => draft.dirty);
+  const changed = (key: string, config?: ScriptsConfig) => setDrafts(previous => {
+    const next = new Map(previous), draft = next.get(key)!;
+    next.set(key, { ...draft, config: config || draft.config, dirty: true }); return next;
+  });
+  return <Modal title="Project scripts" onClose={onClose} className="hm-scripts-dialog">
+    {roots.length > 1 && <label className="hm-script-root-label">Folder<select aria-label="Script folder" value={rootKey} disabled={busy} onChange={event => setRootKey(event.target.value)}>
+      {roots.map(item => <option key={item.key} value={item.key}>{item.label}{drafts.get(item.key)?.dirty ? ' · unsaved' : ''}</option>)}
+    </select></label>}
+    <p className="hm-subtle">Saved in <code>{roots.length > 1 ? root.label + '/' : ''}.hermes/scripts.json</code> for this repository. Commands run on the Hermes backend.</p>
+    {roots.map(item => <div key={item.key} hidden={item.key !== rootKey} data-script-root={item.key} onChangeCapture={() => changed(item.key)}>
+      {(item.error || item.configError) && <p className="hm-error">{item.error || item.configError}</p>}
+      <fieldset disabled={busy || !!item.error || !!item.configError} className="hm-script-fieldset">
+        <ScriptForm config={drafts.get(item.key)!.config} setConfig={config => changed(item.key, config)} />
+      </fieldset>
+    </div>)}
+    {error && <p className="hm-error" role="alert">{error}</p>}
+    <footer><Button disabled={dirty || !!root.error || (root.config.revision === null && !root.configError)} title={dirty ? 'Save or cancel your script changes before opening the configuration' : undefined}
+      onClick={() => { void controller.perform(() => controller.open({ rootKey, path: '.hermes/scripts.json' })); onClose(); }}>Open configuration</Button><span className="hm-spacer" /><Button onClick={onClose}>Cancel</Button>
+      <Button className="hm-primary" disabled={busy || (!dirty && !!root.configError)} onClick={async event => {
+        const dialog = event.currentTarget.closest('dialog')!;
+        for (const form of dialog.querySelectorAll<HTMLElement>('[data-script-root]')) {
+          const invalid = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input,textarea')].find(field => !field.checkValidity());
+          if (invalid) { setRootKey(form.dataset.scriptRoot!); setError('Correct the invalid script fields before saving.'); requestAnimationFrame(() => invalid.reportValidity()); return; }
+        }
+        setBusy(true); setError('');
+        try {
+          for (const item of roots) {
+            const draft = drafts.get(item.key)!;
+            if (!draft.dirty) continue;
+            controller.assertSession(session);
+            await controller.saveConfig(item, draft.config, draft.revision);
+            setDrafts(previous => { const next = new Map(previous); next.set(item.key, { ...draft, revision: item.config.revision, dirty: false }); return next; });
+          }
+          onClose();
+        } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        finally { setBusy(false); }
+      }}>{busy ? 'Saving…' : 'Save scripts'}</Button>
+    </footer>
+  </Modal>;
+}
+
+function ScriptForm({ config, setConfig }: { config: ScriptsConfig; setConfig(config: ScriptsConfig): void }) {
+  const [selected, setSelected] = useState(0);
   const script = config.scripts[selected];
-  const update = (patch: Partial<Script>) => setConfig(value => ({ ...value, scripts: value.scripts.map((entry, i) => i === selected ? { ...entry, ...patch } : entry) }));
+  const update = (patch: Partial<Script>) => setConfig({ ...config, scripts: config.scripts.map((entry, i) => i === selected ? { ...entry, ...patch } : entry) });
   const shift = (direction: number) => {
     const to = selected + direction;
     if (to < 0 || to >= config.scripts.length) return;
@@ -19,10 +64,7 @@ export function ScriptsDialog({ controller, onClose }: { controller: Controller;
     [scripts[selected], scripts[to]] = [scripts[to], scripts[selected]];
     setConfig({ ...config, scripts }); setSelected(to);
   };
-  return <Modal title="Project scripts" onClose={onClose} className="hm-scripts-dialog">
-    <p className="hm-subtle">Saved in <code>.hermes/scripts.json</code> for this repository. Commands run on the Hermes backend.</p>
-    {session.configError && <p className="hm-error">{session.configError}</p>}
-    <div className="hm-scripts-grid"><div className="hm-script-list">
+  return <div className="hm-scripts-grid"><div className="hm-script-list">
       {config.scripts.map((entry, index) => <button key={index} className={selected === index ? 'is-selected' : ''} onClick={() => setSelected(index)}><span>▶</span>{entry.name || 'Unnamed script'}</button>)}
       <Button onClick={() => {
         const id = 'script-' + crypto.randomUUID().slice(0, 8);
@@ -43,19 +85,7 @@ export function ScriptsDialog({ controller, onClose }: { controller: Controller;
         <div className="hm-script-edit-actions"><Button disabled={selected === 0} onClick={() => shift(-1)}>Move up</Button><Button disabled={selected === config.scripts.length - 1} onClick={() => shift(1)}>Move down</Button>
           <Button className="hm-danger" onClick={() => { setConfig({ ...config, scripts: config.scripts.filter((_, i) => i !== selected) }); setSelected(Math.max(0, selected - 1)); }}>Remove</Button></div>
       </>}
-    </div></div>
-    {error && <p className="hm-error" role="alert">{error}</p>}
-    <footer><Button disabled={session.config.revision === null} onClick={() => { void controller.perform(() => controller.open('.hermes/scripts.json')); onClose(); }}>Open configuration</Button><span className="hm-spacer" /><Button onClick={onClose}>Cancel</Button>
-      <Button className="hm-primary" disabled={busy || !!session.configError} onClick={async event => {
-        const fields = event.currentTarget.closest('dialog')?.querySelectorAll('textarea') || [];
-        if ([...fields].some(field => !field.reportValidity())) return;
-        setBusy(true); setError('');
-        try { controller.assertSession(session); await controller.saveConfig(config, revision); onClose(); }
-        catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-        finally { setBusy(false); }
-      }}>{busy ? 'Saving…' : 'Save scripts'}</Button>
-    </footer>
-  </Modal>;
+    </div></div>;
 }
 
 function JsonField({ label, value, onChange }: { label: string; value: object; onChange(value: object): void }) {
