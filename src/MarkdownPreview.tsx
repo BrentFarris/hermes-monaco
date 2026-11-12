@@ -152,5 +152,5 @@ export function MarkdownPreview({ controller, tab }: { controller: Controller; t
     const target = controller.markdownNavigation;
     if (target?.tab === tab) view.current?.scrollTo(target.fragment);
   }, [controller.markdownNavigation, tab]);
-  return <div className="hm-markdown-preview" ref={host} tabIndex={0} role="region" aria-label="Markdown preview" />;
+  return <div className="hm-markdown-preview" data-selectable-text="true" ref={host} tabIndex={0} role="region" aria-label="Markdown preview" />;
 }

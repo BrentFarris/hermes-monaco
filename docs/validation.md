@@ -1,5 +1,16 @@
 # Validation
 
+## Markdown text selection — 2026-11-12
+
+The preview now opts into Hermes's selectable-text styling and explicitly
+enables standard and WebKit text selection. An isolated actual Hermes browser
+host verified mouse-drag selection and native Ctrl+C clipboard contents for
+formatted paragraphs and fenced code in both Split and Preview modes. Copying
+left the document clean and its temporary tab unchanged. No browser errors
+occurred. Build/type checking, runtime loading, and default install scans of the
+repository and staged package passed; the bundle remains 5.37 MiB. Native
+Desktop and macOS were not exercised for this fix.
+
 ## Multiple project folders — 2026-11-11
 
 Validated on Windows with Node 24.14.0, Python 3.14.3, and Chromium

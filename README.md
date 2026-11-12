@@ -64,7 +64,7 @@ Markdown supports headings, lists, GFM tables, read-only task checkboxes, fenced
 
 Repository images are read from the connected backend through the same workspace confinement as files. PNG, JPEG, GIF, WebP, and SVG are supported up to **4 MiB per image**. SVG stays inside an image element. Images load as they approach the visible preview, with at most four outstanding backend reads; leaving a document discards stale results and releases its image URLs. External HTTP(S) images load directly in the browser with no referrer. Missing, blocked, invalid, or oversized images show their alt text or an unavailable-image placeholder.
 
-Ctrl/Cmd+S, Ctrl/Cmd+Shift+P, and F5 remain available from the preview. Markdown view settings are separate from the temporary **preview tab** feature.
+Select rendered text, including code blocks, and copy it with **Ctrl/Cmd+C** in Split or Preview mode. Ctrl/Cmd+S, Ctrl/Cmd+Shift+P, and F5 remain available from the preview. Markdown view settings are separate from the temporary **preview tab** feature.
 
 ## Shared scripts
 
